@@ -1,0 +1,134 @@
+solar:	
+quantil:20	Best params:
+		num_leaves: 450
+		n_estimators: 350
+		min_data_in_leaf: 200
+		lambda_l2: 45
+	quantil:30	Best params:
+		num_leaves: 475
+		n_estimators: 700
+		min_data_in_leaf: 200
+		lambda_l2: 15
+	quantil:80	Best params:
+		num_leaves: 600
+		n_estimators: 450
+		min_data_in_leaf: 200
+		lambda_l2: 50
+	quantil:10	Best params:
+		num_leaves: 600
+		n_estimators: 100
+		min_data_in_leaf: 200
+		lambda_l2: 5
+	quantil:60	Best params:
+		num_leaves: 450
+		n_estimators: 2000
+		min_data_in_leaf: 200
+		lambda_l2: 20
+	quantil:50	Best params:
+		num_leaves: 575
+		n_estimators: 1000
+		min_data_in_leaf: 200
+		lambda_l2: 35
+	quantil:90	Best params:
+		num_leaves: 150
+		n_estimators: 1350
+		min_data_in_leaf: 200
+		lambda_l2: 30
+	quantil:40	Best params:
+		num_leaves: 500
+		n_estimators: 1900
+		min_data_in_leaf: 200
+		lambda_l2: 0
+	quantil:70	Best params:
+		num_leaves: 300
+		n_estimators: 1850
+		min_data_in_leaf: 200
+		lambda_l2: 30
+
+wind:
+
+	quantil:40	Best params:
+		num_leaves: 400
+		n_estimators: 100
+		min_data_in_leaf: 900
+		lambda_l2: 40
+	quantil:50	Best params:
+		num_leaves: 375
+		n_estimators: 100
+		min_data_in_leaf: 1000
+		lambda_l2: 25
+	quantil:60	Best params:
+		num_leaves: 100
+		n_estimators: 100
+		min_data_in_leaf: 200
+		lambda_l2: 35
+	quantil:90	Best params:
+		num_leaves: 375
+		n_estimators: 100
+		min_data_in_leaf: 1000
+		lambda_l2: 15
+	quantil:30	Best params:
+		num_leaves: 100
+		n_estimators: 100
+		min_data_in_leaf: 500
+		lambda_l2: 50
+	quantil:20	Best params:
+		num_leaves: 325
+		n_estimators: 100
+		min_data_in_leaf: 300
+		lambda_l2: 50
+	quantil:70	Best params:
+		num_leaves: 250
+		n_estimators: 100
+		min_data_in_leaf: 700
+		lambda_l2: 35
+	quantil:80	Best params:
+		num_leaves: 600
+		n_estimators: 100
+		min_data_in_leaf: 800
+		lambda_l2: 25
+	quantil:80	Best params:
+		num_leaves: 275
+		n_estimators: 100
+		min_data_in_leaf: 900
+		lambda_l2: 30
+	quantil:90	Best params:
+		num_leaves: 250
+		n_estimators: 100
+		min_data_in_leaf: 900
+		lambda_l2: 40
+	quantil:20	Best params:
+		num_leaves: 100
+		n_estimators: 100
+		min_data_in_leaf: 300
+		lambda_l2: 0
+	quantil:10	Best params:
+		num_leaves: 100
+		n_estimators: 100
+		min_data_in_leaf: 700
+		lambda_l2: 30
+	quantil:30	Best params:
+		num_leaves: 250
+		n_estimators: 100
+		min_data_in_leaf: 1000
+		lambda_l2: 50
+	quantil:70	Best params:
+		num_leaves: 100
+		n_estimators: 200
+		min_data_in_leaf: 300
+		lambda_l2: 0
+	quantil:50	Best params:
+		num_leaves: 600
+		n_estimators: 100
+		min_data_in_leaf: 800
+		lambda_l2: 20
+	quantil:40	Best params:
+		num_leaves: 425
+		n_estimators: 100
+		min_data_in_leaf: 1000
+		lambda_l2: 35
+	quantil:60	Best params:
+		num_leaves: 425
+		n_estimators: 100
+		min_data_in_leaf: 800
+		lambda_l2: 40
