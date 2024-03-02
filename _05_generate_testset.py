@@ -16,6 +16,8 @@ IntegratedDataset = IntegratedDataset[(IntegratedDataset["valid_datetime"] - Int
 #取后15%作为测试集
 IntegratedDataset = IntegratedDataset.iloc[int(len(IntegratedDataset)*0.85):,:].reset_index(drop=True)
 
+#筛选出valid_datetime小于2024-01-19的数据
+IntegratedDataset = IntegratedDataset[IntegratedDataset["valid_datetime"]<=pd.to_datetime("2024-01-19", utc=True)].reset_index(drop=True)
 
 #风电光伏数据集
 columns_wind=pd.read_csv("data/dataset/dwd/WindDataset.csv").columns.tolist()

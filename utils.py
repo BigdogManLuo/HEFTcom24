@@ -37,9 +37,10 @@ class Trainer():
 
         if type=="solar":
             self.features.iloc[:,0:-1]=(self.features.iloc[:,0:-1]-self.Dataset_stats["Mean"]["features"][type])/self.Dataset_stats["Std"]["features"][type] #最后一列是hour不需要标准化
+        
         elif type=="wind":
-            self.features=(self.features-self.Dataset_stats["Mean"]["features"][type])/self.Dataset_stats["Std"]["features"][type] 
-            
+            self.features=(self.features-self.Dataset_stats["Mean"]["features"][type])/self.Dataset_stats["Std"]["features"][type]
+        
         self.labels=(self.labels-self.Dataset_stats["Mean"]["labels"][type])/self.Dataset_stats["Std"]["labels"][type]
         
         #转换为numpy数组
@@ -54,11 +55,12 @@ class Trainer():
         
         #初始化模型
         self.Models={}
+
         
     def train(self,Params):
         if self.full==True:
-            train_features=self.features[int(0.35*len(self.features)):] #取靠后的数据
-            train_labels=self.labels[int(0.35*len(self.labels)):]
+            train_features=self.features[int(0.35*len(self.features)):int(0.95*len(self.features))]
+            train_labels=self.labels[int(0.35*len(self.labels)):int(0.95*len(self.features))]
         else:
             train_features=self.train_features
             train_labels=self.train_labels
@@ -116,8 +118,6 @@ class Trainer():
         plt.show()
         
             
-
-    
     def kfold_train(self,Params,num_folds):
         
         kf = KFold(n_splits=num_folds)
@@ -225,4 +225,3 @@ class HyperParamsOptimizer():
         #等待进程结束
         for p in Process:
             p.join()
-    

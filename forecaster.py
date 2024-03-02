@@ -7,31 +7,17 @@ import numpy as np
 #from _21_stacking import MetaMLP
 
 
-def find_consecutive_over(arr, threshold=520, consecutive_count=8):
-    # 初始化
-    start = None  # 连续序列的开始索引
-    indices = []  # 存储所有符合条件的索引
+# Define a function to adjust the forecast so that it is sorted from q10 to q90 for each time step
+def adjust_forecast(forecast):
+    quantiles = sorted(forecast.keys(), key=lambda x: int(x[1:]))
+    forecast_array = np.array([forecast[q] for q in quantiles])
+    forecast_array_sorted = np.sort(forecast_array, axis=0)
+    for i, q in enumerate(quantiles):
+        forecast[q] = forecast_array_sorted[i, :]
     
-    for i in range(len(arr)):
-        # 检查当前值是否大于阈值
-        if arr[i] > threshold:
-            if start is None:
-                start = i  # 标记连续序列的开始
-        else:
-            # 检查是否结束了一个符合条件的连续序列
-            if start is not None and i - start >= consecutive_count:
-                indices.extend(range(start, i))  # 添加连续序列的索引
-            start = None  # 重置开始索引
-        
-    # 检查最后一个元素是否结束了一个连续序列
-    if start is not None and len(arr) - start >= consecutive_count:
-        indices.extend(range(start, len(arr)))
-    
-    return indices
+    return forecast
 
-
-
-def forecast(wind_features,solar_features,Dataset_stats,hours,full,model_name,WLimit):
+def forecast(wind_features,solar_features,Dataset_stats,hours,full,model_name,WLimit,maxPower=215):
 
     #--------------------------------加载模型---------------------------
     Models_wind={}
@@ -47,7 +33,14 @@ def forecast(wind_features,solar_features,Dataset_stats,hours,full,model_name,WL
                 Models_wind[f"q{quantile}"]=pickle.load(f)
             with open(f"models/{model_name}/partial/solar_q{quantile}.pkl","rb") as f:
                 Models_solar[f"q{quantile}"]=pickle.load(f)
-        
+    
+    #加载meta模型
+    Models_wind_remit={}
+    for quantile in range(10,100,10):
+        with open(f"models/LGBM/full/wind_remit_q{quantile}.pkl","rb") as f:
+            Models_wind_remit[f"q{quantile}"]=pickle.load(f)
+
+
     #--------------------------------预测---------------------------------
     Wind_Generation_Forecast={}
     Solar_Generation_Forecast={}
@@ -70,18 +63,52 @@ def forecast(wind_features,solar_features,Dataset_stats,hours,full,model_name,WL
         output_solar[hours<=2]=0
         output_solar[hours>=21]=0
 
-        if WLimit:
-            #风电限电（临时故障）
-            output_wind[output_wind>150]=144+2*idx
 
-        #汇总结果
-        total_generation_forecast=output_wind+output_solar
-        total_generation_forecast=[elem.item() for elem in total_generation_forecast]
-
-        Total_generation_forecast[f"q{quantile}"]=total_generation_forecast
         Wind_Generation_Forecast[f"q{quantile}"]=output_wind
         Solar_Generation_Forecast[f"q{quantile}"]=output_solar
+        
+    #风电限电
+    if WLimit:
+        
+        original_forecast=Wind_Generation_Forecast[f"q{50}"].copy()
+        maxpowers=[360,370,380,390,400,405,410,412.5,415]
+        for quantile in range(10,100,10):
+            #获取限电点
+            idxs_limit=original_forecast>maxpowers[quantile//10-1]
+            if np.any(idxs_limit):
+                Wind_Generation_Forecast[f"q{quantile}"][idxs_limit]=maxpowers[quantile//10-1]
+            
+            #限制最高功率
+            Wind_Generation_Forecast[f"q{quantile}"][Wind_Generation_Forecast[f"q{quantile}"]>maxpowers[quantile//10-1]]=maxpowers[quantile//10-1]
+        
+    
+        '''
+        #旧策略失效
+        idxs_limit=Wind_Generation_Forecast["q50"]>maxPower #获取可能限电的点
 
+        #如果idxs_limit包含true
+        if np.any(idxs_limit):
+            for quantile in range(10,100,10):
+                #调用限电模型预测
+                quantiles = sorted(Wind_Generation_Forecast.keys(), key=lambda x: int(x[1:]))
+                forecast_array = np.array([Wind_Generation_Forecast[q] for q in quantiles]).T
+                Wind_Generation_Forecast[f"q{quantile}"][idxs_limit]=Models_wind_remit[f"q{quantile}"].predict(forecast_array[idxs_limit])
+                #整体限电功率上限
+                Wind_Generation_Forecast[f"q{quantile}"][Wind_Generation_Forecast[f"q{quantile}"]>maxPower]=maxPower
+                #限电功率下限
+                #elements = Wind_Generation_Forecast[f"q{quantile}"][idxs_limit]  
+                #elements[np.where(elements < 190)] = 190
+                #Wind_Generation_Forecast[f"q{quantile}"][idxs_limit] = elements
+        '''
+        
+    #汇总发电数据
+    for quantile in range(10,100,10):
+        Total_generation_forecast[f"q{quantile}"]=Wind_Generation_Forecast[f"q{quantile}"]+Solar_Generation_Forecast[f"q{quantile}"]
+
+    #分位数重新排序，确保大的分位数结果更大
+    Total_generation_forecast=adjust_forecast(Total_generation_forecast)
+    
+    
     return Total_generation_forecast,Wind_Generation_Forecast,Solar_Generation_Forecast
 
 
@@ -290,7 +317,6 @@ def forecastByStacking(wind_features,solar_features,Dataset_stats,hours,full):
 
     return Total_generation_forecast,Wind_Generation_Forecast,Solar_Generation_Forecast
 '''
-
 
 
 

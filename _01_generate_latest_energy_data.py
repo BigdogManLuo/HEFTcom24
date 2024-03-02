@@ -5,18 +5,12 @@ import comp_utils
 #获取2023-10-27之后的发电数据
 rebase_api_client = comp_utils.RebaseAPI(api_key = open("team_key.txt").read())
 
-#初始化一个空的dataframe
 energy_data_latest=pd.DataFrame()
-
-#遍历"2023-10-27"到"2024-01-08"之间的日期
 for day in tqdm(pd.date_range("2024-01-19","2024-01-27")):
      
     #将day转换为带UTC时区的数据
     day=day.tz_localize("UTC")
-
-    #每天所需时段
-    #timestamp_utc=pd.DataFrame({"timestamp_utc": pd.date_range(start=(day - pd.Timedelta(days=1)).replace(hour=22, minute=0, second=0),end=day.replace(hour=21, minute=30, second=0),freq="30min")})
-
+    
     try:
         #获取当天的风电数据
         wind_tmp=rebase_api_client.get_variable(day=day.strftime("%Y-%m-%d"),variable="wind_total_production")
