@@ -4,12 +4,13 @@ import matplotlib.pyplot as plt
 import pickle
 import comp_utils
 from comp_utils import pinball
-from forecaster import forecast
+from forecaster import forecast,forecastByBenchmark
+import matplotlib.cm as cm
 
 #登录
 rebase_api_client = comp_utils.RebaseAPI(api_key = open("team_key.txt").read())
 
-day="2024-02-22"
+day="2024-02-21"
 
 #=======================获取过去提交的预测数据=====================================
 submissions=rebase_api_client.get_submissions(market_day=day)
@@ -42,10 +43,13 @@ for quantile in range(10,100,10):
 pinball_score=pinball_score/9
 print(f"pinball_score: {pinball_score}")
 
-#绘制图像
+
+#======================对比提交数据和真实数据===================================
+cmap = cm.get_cmap('gray_r')
+colors = cmap(np.abs(np.linspace(-1, 1, 9)**2))
 plt.figure(figsize=(8,6))
 for quantile in range(10,100,10):
-    plt.plot(Total_Generation_Forecast[f"q{quantile}"],label=f"q{quantile}")
+    plt.plot(Total_Generation_Forecast[f"q{quantile}"],label=f"q{quantile}",color=colors[quantile//10-1])
     
 plt.plot(Total_Generation_True,label="True")
 plt.legend()
@@ -93,25 +97,43 @@ pinball_score=0
 for quantile in range(10,100,10):
     pinball_score+=pinball(y=Total_Generation_True,y_hat=Total_Generation_Forecast[f"q{quantile}"],alpha=quantile/100).mean()
 pinball_score=pinball_score/9
-print(f"pinball_score: {pinball_score}")
+print(f"Current Model (pinball_score): {pinball_score}")
 
-#------------------------------------可视化发电曲线--------------------------
+#使用benchmark模型预测
+wind_forecast_table=Features_wind["ws_100_t_dwd_1"].to_frame()
+wind_forecast_table.rename(columns={"ws_100_t_dwd_1":"WindSpeed"},inplace=True)
+solar_forecat_table=Features_solar["rad_t_dwd"].to_frame()
+solar_forecat_table.rename(columns={"rad_t_dwd":"SolarDownwardRadiation"},inplace=True)
+
+pre_Total_Generation_Forecast,pre_Wind_Generation_Forecast,pre_Solar_Generation_Forecast=forecastByBenchmark(wind_forecast_table,solar_forecat_table)
+
+#计算平均pinball损失
+pinball_score=0
+for quantile in range(10,100,10):
+    pinball_score+=pinball(y=Total_Generation_True,y_hat=pre_Total_Generation_Forecast[f"q{quantile}"],alpha=quantile/100).mean()
+pinball_score=pinball_score/9
+print(f"Benchmark Model (pinball_score): {pinball_score}")
+
+
+#------------------------当前模型与benchmark模型对比----------------------------
 plt.figure(figsize=(8,6))
 
 #总预测结果
 plt.subplot(3,1,1)
 plt.title("Total",fontsize=18)
 plt.plot(Total_Generation_True[0:48],label="true")
-plt.plot(Total_Generation_Forecast["q50"],label="forecast")
+plt.plot(Total_Generation_Forecast["q50"],label="current model")
+plt.plot(pre_Total_Generation_Forecast["q50"],label="benchmark model")
 plt.legend()
 plt.grid()
 
-    
+
 #光伏预测结果
 plt.subplot(3,1,2)
 plt.title("Solar",fontsize=18)
 plt.plot(solar_generation["Solar_MWh_Credit"],label="true")
-plt.plot(Solar_Generation_Forecast["q50"],label="forecast")
+plt.plot(Solar_Generation_Forecast["q50"],label="current model")
+plt.plot(pre_Solar_Generation_Forecast["q50"],label="benchmark model")
 plt.legend()
 plt.grid()
 
@@ -119,12 +141,15 @@ plt.grid()
 plt.subplot(3,1,3)
 plt.title("Wind",fontsize=18)
 plt.plot(wind_generation["Wind_MWh_Credit"],label="true")
-plt.plot(Wind_Generation_Forecast["q50"],label="forecast")
+plt.plot(Wind_Generation_Forecast["q50"],label="current model")
+plt.plot(pre_Wind_Generation_Forecast["q50"],label="benchmark model")
 plt.legend()
 plt.grid()
 
 plt.tight_layout()
 plt.show()
+
+
 
 #-------------------------可视化天气特征与发电相关关系------------------------------
 plt.figure(figsize=(8,10))

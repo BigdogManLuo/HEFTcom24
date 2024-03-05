@@ -8,12 +8,11 @@ from matplotlib import pyplot as plt
 import seaborn as sns
 import pickle
 
-#%% 处理dwd 风电数据
+#%%===================================================处理dwd 风电数据==========================================================
 dwd_Hornsea1_old = xr.open_dataset("data/dwd_icon_eu_hornsea_1_20200920_20231027.nc")
 dwd_Hornsea1_new = xr.open_dataset("data/dwd_icon_eu_hornsea_1_20231027_20240108.nc")
 dwd_Hornsea1_latest = xr.open_dataset("data/dwd_icon_eu_hornsea_1_20240108_20240129.nc")
 
-#=======================================特征提取=======================================
 #地区平均风速特征
 dwd_Hornsea1_features_old=dwd_Hornsea1_old[["WindSpeed:100","WindDirection:100"]].mean(dim=["latitude","longitude"]).to_dataframe().reset_index()
 
@@ -75,29 +74,29 @@ dwd_Hornsea1_features_latest=dwd_Hornsea1_features_latest.merge(
     dwd_Hornsea1_latest["WindSpeed:100"].quantile(dim=["latitude","longitude"],q=0.25).to_dataframe().reset_index().rename(columns={"WindSpeed:100":"q25WindSpeed:100","reference_time":"ref_datetime","valid_time":"valid_datetime"}),
     how="left",on=["ref_datetime","valid_datetime"])
 
-#=======================================合并=======================================
+#合并
 dwd_Hornsea1_features_old = dwd_Hornsea1_features_old[dwd_Hornsea1_features_old["ref_datetime"] < "2023-10-27 00:00:00"]
 dwd_Hornsea1_features_new = dwd_Hornsea1_features_new[dwd_Hornsea1_features_new["ref_datetime"] < "2024-01-08 00:00:00"]
 dwd_Hornsea1_features=pd.concat([dwd_Hornsea1_features_old,dwd_Hornsea1_features_new,dwd_Hornsea1_features_latest],axis=0).reset_index(drop=True)
 
 
-#=======================================标准化时间=======================================
+#标准化时间
 dwd_Hornsea1_features["ref_datetime"] = dwd_Hornsea1_features["ref_datetime"].dt.tz_localize("UTC")
 dwd_Hornsea1_features["valid_datetime"] = dwd_Hornsea1_features["ref_datetime"] + pd.TimedeltaIndex(dwd_Hornsea1_features["valid_datetime"],unit="hours")
 
-#=======================================删除非最新的天气预报数据=======================================
+#删除非最新的天气预报数据
 dwd_Hornsea1_features = dwd_Hornsea1_features[dwd_Hornsea1_features["valid_datetime"] - dwd_Hornsea1_features["ref_datetime"] < np.timedelta64(48,"h")].reset_index(drop=True)
 
-#===============================================插值=======================================
+#插值
 dwd_Hornsea1_features=dwd_Hornsea1_features.set_index("valid_datetime").groupby("ref_datetime").resample("30T").interpolate("linear")
 dwd_Hornsea1_features = dwd_Hornsea1_features.drop(columns="ref_datetime",axis=1).reset_index()
 
-#%% 处理dwd 光伏数据
+
+#%%===================================================处理光伏数据================================================
 dwd_solar_old=xr.open_dataset("data/dwd_icon_eu_pes10_20200920_20231027.nc")
 dwd_solar_new=xr.open_dataset("data/dwd_icon_eu_pes10_20231027_20240108.nc")
 dwd_solar_latest=xr.open_dataset("data/dwd_icon_eu_pes10_20240108_20240129.nc")
 
-#============================================特征提取============================================
 #地区平均辐照度特征
 dwd_solar_features_old=dwd_solar_old["SolarDownwardRadiation"].mean(dim="point").to_dataframe().reset_index()
 
@@ -159,46 +158,35 @@ dwd_solar_features_latest=dwd_solar_features_latest.merge(
     dwd_solar_latest["SolarDownwardRadiation"].quantile(dim="point",q=0.25).to_dataframe().reset_index().rename(columns={"SolarDownwardRadiation":"q25SolarDownwardRadiation","reference_time":"ref_datetime","valid_time":"valid_datetime"}),
     how="left",on=["ref_datetime","valid_datetime"])
 
-#============================================合并============================================
+#合并
 dwd_solar_features_old = dwd_solar_features_old[dwd_solar_features_old["ref_datetime"] < "2023-10-27 00:00:00"]
 dwd_solar_features_new = dwd_solar_features_new[dwd_solar_features_new["ref_datetime"] < "2024-01-08 00:00:00"]
 dwd_solar_features=pd.concat([dwd_solar_features_old,dwd_solar_features_new,dwd_solar_features_latest],axis=0).reset_index(drop=True)
 
-#==============================================标准化时间==============================================
+#标准化时间
 dwd_solar_features["ref_datetime"] = dwd_solar_features["ref_datetime"].dt.tz_localize("UTC")
 dwd_solar_features["valid_datetime"] = dwd_solar_features["ref_datetime"] + pd.TimedeltaIndex(dwd_solar_features["valid_datetime"],unit="hours")
 
-#==============================================删除非最新的天气预报数据==============================================
+#删除非最新的天气预报数据
 dwd_solar_features = dwd_solar_features[dwd_solar_features["valid_datetime"] - dwd_solar_features["ref_datetime"] < np.timedelta64(48,"h")]
 
-#========================================================插值========================================================
+#插值
 dwd_solar_features=dwd_solar_features.set_index("valid_datetime").groupby("ref_datetime").resample("30T").interpolate("linear")
 dwd_solar_features = dwd_solar_features.drop(columns="ref_datetime",axis=1).reset_index()
 
 
-#%% 能源数据
+#%%================================================能源数据======================================================
 energy_data = pd.read_csv("data/Energy_Data_20200920_20240118.csv")
 energy_data["dtm"] = pd.to_datetime(energy_data["dtm"])
-
-energy_data_latest = pd.read_csv("data/Energy_Data_latest.csv")
-energy_data_latest["dtm"] = pd.to_datetime(energy_data_latest["dtm"])
-energy_data_latest.rename(columns={"capacity_mwp":"Solar_capacity_mwp"},inplace=True)
 
 #半小时MWh单位
 energy_data["Wind_MWh_credit"] = 0.5*energy_data["Wind_MW"] - energy_data["boa_MWh"]
 energy_data["Solar_MWh_credit"] = 0.5*energy_data["Solar_MW"]
 
-energy_data_latest["Wind_MWh_credit"] = 0.5*energy_data_latest["Wind_MW"] - energy_data_latest["boa"]
-energy_data_latest["Solar_MWh_credit"] = 0.5*energy_data_latest["Solar_MW"]
-
 #缩减为时间-风电-光伏-光伏容量 四列
 energy_data = energy_data[["dtm","Wind_MWh_credit","Solar_MWh_credit","Solar_capacity_mwp"]]
-energy_data_latest=energy_data_latest[["dtm","Wind_MWh_credit","Solar_MWh_credit","Solar_capacity_mwp"]]
 
-#合并，有重复的条目则覆盖
-energy_data = pd.concat([energy_data,energy_data_latest],axis=0).drop_duplicates(subset=["dtm"],keep="last").reset_index(drop=True)
-
-#%% 整合
+#%%=================================================整合==========================================================
 
 #合并dwd数据
 modelling_table=dwd_Hornsea1_features.merge(dwd_solar_features,how="outer",on=["ref_datetime","valid_datetime"])
@@ -259,7 +247,7 @@ for group_idx,(ref_datetime,group) in enumerate(tqdm(modelling_table)):
             }
         IntegratedDataset=IntegratedDataset._append(data,ignore_index=True)
         
-#%%数据清洗
+#%%============================================数据清洗======================================================
 
 #缺失值处理
 IntegratedDataset=IntegratedDataset.dropna(axis=0,how='any')
@@ -267,42 +255,15 @@ IntegratedDataset=IntegratedDataset.dropna(axis=0,how='any')
 #删除Wind_MWh_credit中超过650的异常值
 IntegratedDataset=IntegratedDataset[IntegratedDataset["Wind_MWh_credit"]<650]
 
-#%% 特征工程
-
-'''
-#将风向角度变为正余弦值
-IntegratedDataset["wd_100_t-1_dwd_cos"]=np.cos(np.radians(IntegratedDataset["wd_100_t-1_dwd"]))
-IntegratedDataset["wd_100_t_dwd_cos"]=np.cos(np.radians(IntegratedDataset["wd_100_t_dwd"]))
-IntegratedDataset["wd_100_t+1_dwd_cos"]=np.cos(np.radians(IntegratedDataset["wd_100_t+1_dwd"]))
-IntegratedDataset["wd_100_t-1_dwd_sin"]=np.sin(np.radians(IntegratedDataset["wd_100_t-1_dwd"]))
-IntegratedDataset["wd_100_t_dwd_sin"]=np.sin(np.radians(IntegratedDataset["wd_100_t_dwd"]))
-IntegratedDataset["wd_100_t+1_dwd_sin"]=np.sin(np.radians(IntegratedDataset["wd_100_t+1_dwd"]))
-
-#将风速变为二次方和三次方
-IntegratedDataset["ws_100_t-1_dwd_2"]=IntegratedDataset["ws_100_t-1_dwd_1"]**2
-IntegratedDataset["ws_100_t_dwd_2"]=IntegratedDataset["ws_100_t_dwd_1"]**2
-IntegratedDataset["ws_100_t+1_dwd_2"]=IntegratedDataset["ws_100_t+1_dwd_1"]**2
-IntegratedDataset["ws_100_t-1_dwd_3"]=IntegratedDataset["ws_100_t-1_dwd_1"]**3
-IntegratedDataset["ws_100_t_dwd_3"]=IntegratedDataset["ws_100_t_dwd_1"]**3
-IntegratedDataset["ws_100_t+1_dwd_3"]=IntegratedDataset["ws_100_t+1_dwd_1"]**3
-'''
+#%%============================================特征工程======================================================
 
 #提取valid_datetime中的小时
 IntegratedDataset["hours"]=pd.to_datetime(IntegratedDataset["valid_datetime"]).dt.hour
 
-#提取valid_datetime-ref_datetime的小时差,以2小时为间隔
-IntegratedDataset["hours_diff"]=pd.to_datetime(IntegratedDataset["valid_datetime"])-pd.to_datetime(IntegratedDataset["ref_datetime"])
-IntegratedDataset["hours_diff"]=IntegratedDataset["hours_diff"].dt.total_seconds()/3600
-IntegratedDataset["hours_diff"]=IntegratedDataset["hours_diff"].astype(int)
-IntegratedDataset["hours_diff"]=(IntegratedDataset["hours_diff"]/2).astype(int)
-
-#根据valid_datetime提取季节信息
-#IntegratedDataset["season"]=pd.to_datetime(IntegratedDataset["valid_datetime"]).dt.quarter
-
+#%%============================================分别构造风电、光伏数据集========================================
 
 #IntegratedDataset=pd.read_csv("data/dataset/dwd/IntegratedDataset.csv")
 
-#%% 分别构造风电、光伏数据集
 columns_wind_features=["ws_100_t_dwd_1","ws_100_t_dwd_max","ws_100_t_dwd_min","ws_100_t_dwd_q75","ws_100_t_dwd_q25",
                             "ws_100_t+1_dwd_1","ws_100_t+1_dwd_max","ws_100_t+1_dwd_min","ws_100_t+1_dwd_q75","ws_100_t+1_dwd_q25"]
 columns_wind_labels=["Wind_MWh_credit"]
@@ -355,12 +316,12 @@ with open('data/dataset/dwd/Dataset_stats.pkl', 'wb') as handle:
 hours = IntegratedDataset["hours"].copy()
 SolarDataset.insert(len(SolarDataset.columns) - 1, "hours", hours)
 
-#%% 导出数据集
+#%%==========================================导出数据集========================================
 IntegratedDataset.to_csv('data/dataset/dwd/IntegratedDataset.csv',index=False)
 WindDataset.to_csv('data/dataset/dwd/WindDataset.csv',index=False)
 SolarDataset.to_csv('data/dataset/dwd/SolarDataset.csv',index=False)
 
-#%% 可视化
+#%%==========================================可视化========================================
 
 #展示功率-天气相关性
 plt.figure(figsize=(9,5))

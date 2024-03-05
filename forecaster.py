@@ -70,7 +70,7 @@ def forecast(wind_features,solar_features,Dataset_stats,hours,full,model_name,WL
     #风电限电
     if WLimit:
         
-        original_forecast=Wind_Generation_Forecast[f"q{50}"].copy()
+        original_forecast=Wind_Generation_Forecast[f"q{30}"].copy()
         maxpowers=[360,370,380,390,400,405,410,412.5,415]
         for quantile in range(10,100,10):
             #获取限电点

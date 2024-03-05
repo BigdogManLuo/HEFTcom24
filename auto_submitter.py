@@ -203,7 +203,6 @@ tomorrow=pd.Timestamp.now().date()+pd.Timedelta("1D")
 IntegratedFeatures.to_csv(f"logs/dfs/{tomorrow}_IntegratedFeatures.csv",index=False)
 
 
-
 #%%=====================================预测结果=====================================
 plt.figure(figsize=(8,6))
 plt.subplot(3,1,1)
@@ -260,11 +259,9 @@ plt.savefig(f"logs/figs/{tomorrow}_benchmark_comp.png",dpi=500)
 submission_data = comp_utils.prep_submission_in_json_format(submission_data)
 
 resp=rebase_api_client.submit(submission_data,recordings) #最终提交
+submissions=rebase_api_client.get_submissions(market_day=tomorrow)
+send_mes(recordings,resp,tomorrow)
 if resp.status_code==200:
     print("提交成功")
 else:
     raise ValueError("提交失败")
-
-send_mes(recordings,resp,tomorrow)
-
-submissions=rebase_api_client.get_submissions(market_day=tomorrow)
