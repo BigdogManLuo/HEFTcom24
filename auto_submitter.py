@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from comp_utils import send_mes
 import matplotlib.pyplot as plt
-from forecaster import forecastByLGBM,forecastByBenchmark
+from forecaster import forecast,forecastByBenchmark
 import pickle
 '''-------------------------------提交摘要------------------------------'''
 recordings="""
@@ -14,8 +14,9 @@ recordings="""
 发电数据：清除风电异常数据
 模型: LightGBM
 手动工程：光伏夜晚补0，9个模型超参数调优（未完全调整）
-风电限电：142~160MW 2MW步长 
+风电限电：限电模型学习
 """
+
 
 #读取队伍API key
 rebase_api_client = comp_utils.RebaseAPI(api_key = open("team_key.txt").read())
@@ -141,10 +142,8 @@ for i in range(len(latest_forecast_table)-2):
 IntegratedFeatures["hours"]=pd.to_datetime(IntegratedFeatures["valid_datetime"]).dt.hour
 hours=IntegratedFeatures["hours"]
 
-columns_wind_features=["ws_100_t_dwd_1","ws_100_t_dwd_max","ws_100_t_dwd_min","ws_100_t_dwd_q75","ws_100_t_dwd_q25",
-                            "ws_100_t+1_dwd_1","ws_100_t+1_dwd_max","ws_100_t+1_dwd_min","ws_100_t+1_dwd_q75","ws_100_t+1_dwd_q25"]
-columns_solar_features=["rad_t-1_dwd","rad_t-1_dwd_max","rad_t-1_dwd_min","rad_t-1_dwd_q75","rad_t-1_dwd_q25",
-                            "rad_t_dwd","rad_t_dwd_max","rad_t_dwd_min","rad_t_dwd_q75","rad_t_dwd_q25","hours"]
+columns_wind_features=pd.read_csv("data/dataset/dwd/WindDataset.csv").columns.tolist()[:-1]
+columns_solar_features=pd.read_csv("data/dataset/dwd/SolarDataset.csv").columns.tolist()[:-1]
 dwd_wind_features=IntegratedFeatures[columns_wind_features]
 dwd_solar_features=IntegratedFeatures[columns_solar_features]
 
@@ -177,11 +176,18 @@ pre_Total_Generation_Forecast,pre_Wind_Generation_Forecast,pre_Solar_Generation_
 
 
 #%% 预测
-Total_Generation_Forecast,Wind_Generation_Forecast,Solar_Generation_Forecast=forecastByLGBM(wind_features,
-                                                                                                       solar_features,
-                                                                                                       Dataset_stats,
-                                                                                                       hours,
-                                                                                                       full=True)
+params={
+    "wind_features":wind_features,
+    "solar_features":solar_features,
+    "Dataset_stats":Dataset_stats,
+    "hours":hours,
+    "model_name":"LGBM",
+    "full":True,
+    "WLimit":True,
+    "maxPower":215
+}
+Total_Generation_Forecast,Wind_Generation_Forecast,Solar_Generation_Forecast=forecast(**params)
+
 #合成提交数据
 for quantile in range(10,100,10):
     submission_data[f"q{quantile}"]=Total_Generation_Forecast[f"q{quantile}"]
@@ -192,7 +198,8 @@ for quantile in range(10,100,10):
 submission_data["market_bid"]=submission_data["q50"]
 
 #%% 日志记录
-tomorrow=pd.Timestamp(submission_data["datetime"].iloc[3]).strftime("%Y-%m-%d")
+#设置tomorrow为明天的日期
+tomorrow=pd.Timestamp.now().date()+pd.Timedelta("1D")
 IntegratedFeatures.to_csv(f"logs/dfs/{tomorrow}_IntegratedFeatures.csv",index=False)
 
 
@@ -221,25 +228,24 @@ plt.figure(figsize=(8,6))
 plt.subplot(3,1,1)
 for idx,quantile in enumerate(range(10,100,10)):
     plt.plot(Wind_Generation_Forecast[f"q{quantile}"],label=f"q{quantile}")
-plt.legend()
+plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left',frameon=False)
 plt.ylabel("Wind Generation")
 plt.xlabel("Time")
 plt.grid()
 plt.subplot(3,1,2)
 for idx,quantile in enumerate(range(10,100,10)):
     plt.plot(Solar_Generation_Forecast[f"q{quantile}"],label=f"q{quantile}")
-plt.legend()
 plt.ylabel("Solar Generation")
 plt.xlabel("Time")
 plt.grid()
 plt.subplot(3,1,3)
 for idx,quantile in enumerate(range(10,100,10)):
-    plt.plot(Total_Generation_Forecast[f"q{quantile}"],label=f"q{quantile}")
-plt.legend()
+    plt.plot(submission_data[f"q{quantile}"],label=f"q{quantile}")
 plt.ylabel("TotalGeneration")
 plt.xlabel("Time")
 plt.grid()
 
+plt.savefig(f"logs/figs/{tomorrow}_forecast.png",dpi=500)
 
 #%% 与benchmark的预测结果对比
 plt.figure(figsize=(20,10))
@@ -295,21 +301,24 @@ plt.grid()
 
 plt.subplot(3,1,3)
 plt.plot(pre_Total_Generation_Forecast["q50"],label="benchmark")
-plt.plot(Total_Generation_Forecast["q50"],label="now")
+plt.plot(submission_data["q50"],label="now")
 plt.legend()
 plt.ylabel("q50")
 plt.xlabel("Total Generation")
 plt.grid()
 plt.tight_layout()
-
+plt.savefig(f"logs/figs/{tomorrow}_benchmark_comp.png",dpi=500)
 
 #%% 提交
+'''
 submission_data = comp_utils.prep_submission_in_json_format(submission_data)
 
-rebase_api_client.submit(submission_data,recordings) #最终提交
+resp=rebase_api_client.submit(submission_data,recordings) #最终提交
 
-submissions=rebase_api_client.get_submissions()
+submissions=rebase_api_client.get_submissions(market_day=tomorrow)
 
 #%%  发邮件
-send_mes(recordings)
+send_mes(recordings,resp,tomorrow)
 
+print(resp)
+'''

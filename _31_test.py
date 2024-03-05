@@ -54,7 +54,7 @@ params={
     "hours":hours,
     "full":False,
     "model_name":"LGBM",
-    "WLimit":False
+    "WLimit":False,
 }
 Total_Generation_Forecast,Wind_Generation_Forecast,Solar_Generation_Forecast=forecast(**params)
 

@@ -16,6 +16,17 @@ IntegratedDataset = IntegratedDataset[(IntegratedDataset["valid_datetime"] - Int
 #取后15%作为测试集
 IntegratedDataset = IntegratedDataset.iloc[int(len(IntegratedDataset)*0.85):,:].reset_index(drop=True)
 
+#构成原版相同的测试集
+IntegratedDataset_old=pd.read_csv("F:/HEFTcom24/data/dataset/test/IntegratedDataset.csv")
+IntegratedDataset_old["ref_datetime"] = pd.to_datetime(IntegratedDataset_old["ref_datetime"])
+IntegratedDataset_old["valid_datetime"] = pd.to_datetime(IntegratedDataset_old["valid_datetime"])
+
+#筛选出IntegratedDataset中[ref_datetime,valid_datetime]与IntegratedDataset_old中[ref_datetime,valid_datetime]相同的数据
+IntegratedDataset=IntegratedDataset[IntegratedDataset.set_index(["ref_datetime","valid_datetime"]).index.isin(IntegratedDataset_old.set_index(["ref_datetime","valid_datetime"]).index)]
+
+#筛选出IntegratedDataset_old中[ref_datetime,valid_datetime]与IntegratedDataset中[ref_datetime,valid_datetime]相同的数据
+IntegratedDataset_old=IntegratedDataset_old[IntegratedDataset_old.set_index(["ref_datetime","valid_datetime"]).index.isin(IntegratedDataset.set_index(["ref_datetime","valid_datetime"]).index)]
+
 
 #风电光伏数据集
 columns_wind=pd.read_csv("data/dataset/dwd/WindDataset.csv").columns.tolist()
@@ -30,3 +41,5 @@ WindDataset.to_csv('data/dataset/test/WindDataset.csv',index=False)
 SolarDataset.to_csv('data/dataset/test/SolarDataset.csv',index=False)
 
 print("done!")
+
+#IntegratedDataset_old.to_csv("F:/HEFTcom24/data/dataset/test/IntegratedDataset.csv")
