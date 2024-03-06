@@ -7,6 +7,8 @@ import multiprocessing
 from comp_utils import pinball
 import optuna
 import matplotlib.pyplot as plt
+import torch
+import os
 
 class Trainer():
 
@@ -22,10 +24,7 @@ class Trainer():
             self.path="partial"
         
         #加载数据集
-        if type=="wind":
-            self.dataset=pd.read_csv(f"data/dataset/{source}/WindDataset.csv")
-        elif type=="solar":
-            self.dataset=pd.read_csv(f"data/dataset/{source}/SolarDataset.csv")
+        self.dataset=pd.read_csv(f"data/dataset/{source}/{type.capitalize()}Dataset.csv")
 
         #提取features和labels
         self.features=self.dataset.iloc[:,:-1]
@@ -46,15 +45,21 @@ class Trainer():
         #转换为numpy数组
         self.features=np.array(self.features)
         self.labels=np.array(self.labels)
-        
+
         #划分训练集和测试集
         self.train_features=self.features[int(0.35*len(self.features)):int(0.8*len(self.features))]
         self.train_labels=self.labels[int(0.35*len(self.labels)):int(0.8*len(self.labels))]
         self.test_features=self.features[int(0.8*len(self.features)):]
         self.test_labels=self.labels[int(0.8*len(self.labels)):]
+
+        
+        #记录真实值
+        self.train_labels_true=self.train_labels*self.Dataset_stats["Std"]["labels"][self.type]+self.Dataset_stats["Mean"]["labels"][self.type]
+        self.test_labels_true=self.test_labels*self.Dataset_stats["Std"]["labels"][self.type]+self.Dataset_stats["Mean"]["labels"][self.type]
         
         #初始化模型
         self.Models={}
+
 
         
     def train(self,Params):
@@ -121,56 +126,41 @@ class Trainer():
     def kfold_train(self,Params,num_folds):
         
         kf = KFold(n_splits=num_folds)
-        predictions = {f"q{quantile}": [] for quantile in range(10,100,10)}
-        for quantile in range(10,100,10):
+        predictions =[]
 
-            Params[f"q{quantile}"]['alpha']=quantile/100
+        #将训练数据划分为多份
+        for train_index, val_index in kf.split(self.train_features):
 
-            #将训练数据划分为多份
-            for train_index, val_index in kf.split(self.train_features):
+            #在当前份上训练
+            train_features=self.train_features[train_index]
+            train_labels=self.train_labels[train_index]
+            val_features=self.train_features[val_index]
+            model=self.Regressor(**Params)
+            model.fit(train_features,train_labels)
 
-                #在当前份上训练
-                train_features=self.train_features[train_index]
-                train_labels=self.train_labels[train_index]
-                val_features=self.train_features[val_index]
-                model=self.Regressor(**Params[f"q{quantile}"])
-                model.fit(train_features,train_labels)
+            #在当前份上预测
+            prediction=model.predict(val_features)
 
-                #在当前份上预测
-                prediction=model.predict(val_features)
-
-                #反归一化
-                prediction=prediction*self.Dataset_stats["Std"]["labels"][self.type]+self.Dataset_stats["Mean"]["labels"][self.type]
+            #反归一化
+            prediction=prediction*self.Dataset_stats["Std"]["labels"][self.type]+self.Dataset_stats["Mean"]["labels"][self.type]
                 
-                #合并
-                predictions[f"q{quantile}"].append(prediction)
+            #合并
+            predictions.append(prediction)
 
-            predictions[f"q{quantile}"]=np.concatenate(predictions[f"q{quantile}"])
-        
-        np.save(f"predictions/{self.model_name}/{self.type}_q{quantile}.npy",predictions)
+        predictions=np.concatenate(predictions,axis=0)
 
-    
-    def kfold_train_parallel(self,num_folds):
-        #创建多进程
-        Process=[]
-        for quantile in range(10,100,10):
-            Process.append(multiprocessing.Process(target=self.kflod_train,args=(quantile,num_folds)))
-            
-        #启动进程
-        for p in Process:
-            p.start()
+        #保存结果，如果路径不存在则创建
+        if not os.path.exists(f"predictions/{self.model_name}"):
+            os.makedirs(f"predictions/{self.model_name}")
+        np.save(f"predictions/{self.model_name}/{self.type}.npy",predictions)
 
-        #等待进程结束
-        for p in Process:
-            p.join()
-            
-        #加载所有预测结果
-        predictions = {}
-        for quantile in range(10,100,10):
-            predictions[f"q{quantile}"]=np.load(f"predictions/{self.model_name}/{self.type}_q{quantile}.npy")
-            
-        return predictions
+        self.predictions=predictions
 
+        #保存模型，如果路径不存在则创建
+        if not os.path.exists(f"models/stacking/{self.model_name}/"):
+            os.makedirs(f"models/stacking/{self.model_name}/")
+        with open(f"models/stacking/{self.model_name}/{self.type}.pkl","wb") as f:
+            pickle.dump(model,f)
 
 
 class HyperParamsOptimizer():
@@ -192,7 +182,6 @@ class HyperParamsOptimizer():
 
             model=self.Regressor(**self.params_raw)
             model.fit(X_train,y_train,eval_set=[(X_test,y_test)])
-            
             #在当前份上预测
             preds=model.predict(X_test)
             
@@ -225,3 +214,98 @@ class HyperParamsOptimizer():
         #等待进程结束
         for p in Process:
             p.join()
+
+
+class Dataset(torch.utils.data.Dataset):
+    def __init__(self,features,labels):
+        self.features=torch.tensor(features,dtype=torch.float32)
+        self.labels=torch.tensor(labels,dtype=torch.float32)
+        
+    def __getitem__(self,index):
+        return self.features[index],self.labels[index]
+    
+    def __len__(self):
+        return len(self.features)
+    
+class NNRegressor():
+    def __init__(self,lr,batch_size,num_epochs,input_size,output_size,hidden_size,loss_fn,alpha,num_layers,verbose=False):
+        self.lr=lr
+        self.batch_size=batch_size
+        self.num_epochs=num_epochs
+        self.hidden_size=hidden_size
+        self.loss_fn=loss_fn
+        self.verbose=verbose
+        self.num_layers=num_layers
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.alpha=alpha
+        if loss_fn=="quantile":
+            self.criterion = lambda y,y_hat: pinball(y=y,y_hat=y_hat,alpha=alpha)
+        elif loss_fn=="mse":
+            self.criterion = torch.nn.MSELoss()
+        elif loss_fn=="mae":
+            self.criterion = torch.nn.L1Loss()
+        else:
+            raise ValueError("loss_fn must be one of ['quantile','mse','mae']")
+
+
+        #定义模型(根据input_size,output_size,hidden_size和num_layers)
+        self.model=torch.nn.Sequential()
+        self.model.add_module("input",torch.nn.Linear(input_size,hidden_size))
+        self.model.add_module("relu",torch.nn.ReLU())
+        for i in range(num_layers-1):
+            self.model.add_module(f"hidden_{i}",torch.nn.Linear(hidden_size,hidden_size))
+            self.model.add_module(f"relu_{i}",torch.nn.ReLU())
+        self.model.add_module("output",torch.nn.Linear(hidden_size,output_size))
+        self.model.to(device=self.device)
+
+    def fit(self,features,labels):
+
+        #定义优化器
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
+
+        #创建Dataset和DataLoader
+        dataset=Dataset(features,labels)
+        dataloader=torch.utils.data.DataLoader(dataset,batch_size=self.batch_size,shuffle=True)
+
+        for epoch in range(self.num_epochs):
+            self.model.train()
+            train_loss_tmp=0
+            for i, (feature, label) in enumerate(dataloader):
+
+                #数据转移到计算设备
+                feature = feature.to(device=self.device)
+                label = label.to(device=self.device).unsqueeze(1)
+
+                #前向传播
+                outputs = self.model(feature)
+
+                #计算损失
+                if outputs.shape!=label.shape:
+                    raise ValueError("outputs shape is not equal to label shape")
+                else:
+                    loss = self.criterion(y_hat=outputs,y=label)
+
+                #反向传播
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                
+                #记录损失
+                train_loss_tmp+=loss.item()
+
+            train_loss_tmp=train_loss_tmp/(i+1)
+
+            if self.verbose==True:
+                print(f"Epoch:{epoch+1}\tLoss:{train_loss_tmp}")
+        
+    def predict(self,features):
+        self.model.eval()
+        features=torch.tensor(features,dtype=torch.float32).to(device=self.device)
+        return self.model(features).detach().cpu().numpy().flatten()
+    
+
+    def save(self,path):
+        torch.save(self.model.state_dict(),path)
+    
+
+

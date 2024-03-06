@@ -3,7 +3,7 @@ import torch
 import pandas as pd
 import matplotlib.pyplot as plt
 from comp_utils import pinball
-from forecaster import forecast
+from forecaster import forecast,forecastByStacking
 import pickle
 
 '''-------------------------------测试摘要------------------------------'''
@@ -29,6 +29,7 @@ labels_wind=WindDataset.iloc[:,-1]
 features_solar=SolarDataset.iloc[:,:-1]
 labels_solar=SolarDataset.iloc[:,-1]
 
+
 #z-score标准化(仅对特征)
 with open(f"data/dataset/{source}/Dataset_stats.pkl","rb") as f:
     Dataset_stats=pickle.load(f)
@@ -47,6 +48,7 @@ hours=IntegratedDataset["hours"]
 
 
 #%% 预测
+'''
 params={
     "wind_features":features_wind,
     "solar_features":features_solar,
@@ -57,6 +59,50 @@ params={
     "WLimit":False,
 }
 Total_Generation_Forecast,Wind_Generation_Forecast,Solar_Generation_Forecast=forecast(**params)
+'''
+
+#集成学习测试
+'''
+params={
+    "wind_features":features_wind,
+    "solar_features":features_solar,
+    "Dataset_stats":Dataset_stats,
+    "wind_forecast_table":wind_forecast_table,
+    "solar_forecat_table":solar_forecat_table,
+    "hours":hours,
+    "full":False,
+}
+
+Total_Generation_Forecast,Wind_Generation_Forecast,Solar_Generation_Forecast=forecastByStacking(**params)
+'''
+
+
+#混合使用
+params={
+    "wind_features":features_wind,
+    "solar_features":features_solar,
+    "Dataset_stats":Dataset_stats,
+    "hours":hours,
+    "full":False,
+    "model_name":"LGBM",
+    "WLimit":False,
+}
+_,Wind_Generation_Forecast,_=forecast(**params)
+
+params={
+    "wind_features":features_wind,
+    "solar_features":features_solar,
+    "Dataset_stats":Dataset_stats,
+    "hours":hours,
+    "full":False,
+}
+
+_,_,Solar_Generation_Forecast=forecastByStacking(**params)
+
+Total_Generation_Forecast={}
+for quantile in range(10,100,10):
+    Total_Generation_Forecast[f"q{quantile}"]=Wind_Generation_Forecast[f"q{quantile}"]+Solar_Generation_Forecast[f"q{quantile}"]
+
 
 print(recordings)
 #计算分位数损失

@@ -11,7 +11,7 @@ IntegratedFeatures["ref_datetime"]=pd.to_datetime(IntegratedFeatures["ref_dateti
 rebase_api_client = comp_utils.RebaseAPI(api_key = open("team_key.txt").read())
 
 energy_data_latest=pd.DataFrame()
-for day in tqdm(pd.date_range("2024-02-05","2024-02-21")):
+for day in tqdm(pd.date_range("2024-02-26","2024-02-27")):
     day=day.tz_localize("UTC")
     try:
         #获取当天的风电数据
@@ -66,6 +66,8 @@ IntegratedDataset = IntegratedFeatures.merge(energy_data_latest,how="inner",left
 #缺失值处理
 IntegratedDataset=IntegratedDataset.dropna(axis=0,how='any')
 
+#选取2024-02-26 12:00:00 之后的数据
+IntegratedDataset = IntegratedDataset[IntegratedDataset["valid_datetime"] > pd.Timestamp("2024-02-26 12:00:00", tz='UTC')]
 #获取风电限电数据集所需要的列
 columns_wind=pd.read_csv("data/dataset/dwd/WindDataset.csv").columns.tolist()
 WindRemitDataset=IntegratedDataset[columns_wind]

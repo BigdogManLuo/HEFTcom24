@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from comp_utils import send_mes
 import matplotlib.pyplot as plt
-from forecaster import forecast,forecastByBenchmark
+from forecaster import forecast,forecastByBenchmark,forecastByStacking
 import pickle
 '''-------------------------------提交摘要------------------------------'''
 recordings="""
@@ -184,9 +184,28 @@ params={
     "model_name":"LGBM",
     "full":True,
     "WLimit":True,
-    "maxPower":215
+    "maxPower":410
 }
-Total_Generation_Forecast,Wind_Generation_Forecast,Solar_Generation_Forecast=forecast(**params)
+_,Wind_Generation_Forecast,_=forecast(**params)
+
+#用集成学习模型预测光伏
+params={
+    "wind_features":wind_features,
+    "solar_features":solar_features,
+    "Dataset_stats":Dataset_stats,
+    "hours":hours,
+    "full":False,
+}
+_,_,Solar_Generation_Forecast=forecastByStacking(**params)
+
+Total_Generation_Forecast={}
+for quantile in range(10,100,10):
+    Total_Generation_Forecast[f"q{quantile}"]=Wind_Generation_Forecast[f"q{quantile}"]+Solar_Generation_Forecast[f"q{quantile}"]
+
+
+
+
+
 
 #合成提交数据
 for quantile in range(10,100,10):
@@ -256,6 +275,7 @@ plt.tight_layout()
 plt.savefig(f"logs/figs/{tomorrow}_benchmark_comp.png",dpi=500)
 
 #%% 提交
+
 submission_data = comp_utils.prep_submission_in_json_format(submission_data)
 
 resp=rebase_api_client.submit(submission_data,recordings) #最终提交

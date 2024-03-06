@@ -3,6 +3,7 @@ import pickle
 import matplotlib.pyplot as plt
 from comp_utils import pinball
 from lightgbm import LGBMRegressor
+from sklearn.linear_model import QuantileRegressor
 import numpy as np
 from forecaster import adjust_forecast
 np.random.seed(20010524)
@@ -40,7 +41,7 @@ plt.plot(WindRemitDataset["q50"])
 
 #====================================风电限电模型训练==================================
 
-maxPower=215
+maxPower=410
 #筛选出风电限电数据
 MetaDataset=WindRemitDataset[WindRemitDataset[f"q{50}"]>maxPower]
 
@@ -51,22 +52,32 @@ MetaDataset_test=MetaDataset[~idxs]
 
 Pinball_Losses_test={}
 Pinball_Losses_full={}
-for idx,quantile in enumerate(range(10,100,10)):
 
+for idx,quantile in enumerate(range(10,100,10)):
+    
+    Regressor=QuantileRegressor
+    
+    params={
+        "quantile":quantile/100,
+        "alpha":1.3
+    }
+    
+    model=Regressor(**params)
+    '''
     #创建LGBM模型
     params={
         "num_leaves":3,
         "n_estimators":50,
         "max_depth":3,
-        "lambda_l1":10,
-        "lambda_l2":10,
+        "lambda_l1":0,
+        "lambda_l2":0,
         "objective":"quantile",
         "alpha":quantile/100,
         "verbose":-1,
         "random_state":42
     }
     model=LGBMRegressor(**params)
-
+    '''
     #训练模型 从q50的预测结果到不同分位数的预测结果
     model.fit(np.array(MetaDataset_train[["q10","q20","q30","q40","q50","q60","q70","q80","q90"]]),
               np.array(MetaDataset_train["Wind_MWh_credit"]))
@@ -80,7 +91,7 @@ for idx,quantile in enumerate(range(10,100,10)):
         pickle.dump(model,f)
 
     #全训练
-    model=LGBMRegressor(**params)
+    model=Regressor(**params)
 
     #训练模型 从q50的预测结果到不同分位数的预测结果
     model.fit(np.array(MetaDataset[["q10","q20","q30","q40","q50","q60","q70","q80","q90"]]),
