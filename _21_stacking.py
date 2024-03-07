@@ -1,66 +1,88 @@
 from lightgbm import LGBMRegressor
 from catboost import CatBoostRegressor
-from sklearn.ensemble import ExtraTreesRegressor
-from sklearn.neural_network import MLPRegressor
-from sklearn.linear_model import QuantileRegressor
-from utils import Trainer,HyperParamsOptimizer
+from utils import Trainer,HyperParamsOptimizer,NNRegressor
+import dill as pickle
 from statsmodels.iolib import smpickle
 import numpy as np
-import pickle
+#import pickle
 from tqdm import tqdm
 import optuna
 import pandas as pd
 
-def defineParams(regressor_name):
+def defineParams(regressor_name,target_type):
 
     if regressor_name=="LGBM":
+        
+        Params={}
+        if target_type=="solar":
+            
+            Num_leaves=[350,350,350,350,600,475,475,400,150]
+            Num_estimators=[550,550,550,400,1000,1000,385,300,650]
+            Min_data_in_leaf=[300,300,200,300,200,200,400,200,200]
+            l2=[5,5,5,5,0,30,30,20,50]
 
-        params={
-            'objective': 'mae',
-            'num_leaves': 600,
-            'n_estimators':1000,
-            'min_data_in_leaf': 200,
-            'lambda_l2':0,
-            'verbose':-1,
+        elif target_type=="wind":
 
-            }
+            Num_leaves=[100,100,250,425,600,425,100,275,250]
+            Num_estimators=[100,100,100,100,100,100,200,100,100]
+            Min_data_in_leaf=[700,300,1000,1000,800,1000,300,900,900]
+            l2=[30,0,50,50,20,35,0,30,40]
+        
+        for idx, quantile in enumerate(range(10,100,10)):
+            params={
+                'objective': 'quantile',
+                'alpha':quantile/100,
+                'num_leaves': Num_leaves[idx],
+                'n_estimators': Num_estimators[idx],
+                'min_data_in_leaf': Min_data_in_leaf[idx],
+                'lambda_l2':l2[idx],
+                'verbose':-1
+                }
+            
+            Params[f"q{quantile}"]=params
 
     elif regressor_name=="CatBoost":
-        
-        params={
-            'iterations':200, 
-            'learning_rate':1e-1,
-            'silent':True,
-            'loss_function':'Quantile:alpha=0.5'
-            }
+        Params={}
+        for idx, quantile in enumerate(range(10,100,10)):
+            params={
+                'iterations':250, 
+                'learning_rate':1e-1,
+                'silent':True,
+                'loss_function':f'Quantile:alpha={quantile/100}'
+                }
+            
+            Params[f"q{quantile}"]=params
+            
 
     elif regressor_name=="MLP":
-
-        params={
-            "hidden_layer_sizes":(32,32,32),
-            "max_iter":50,
-            "verbose":False,
-        }
-
-    elif regressor_name=="ExtraTrees":
-
-        params={
-            "n_estimators":300,
-            "max_depth":8,
-            "min_samples_split":5,
-            "min_samples_leaf":1,
-            "verbose":0,
-        }
+        Params={}
+        for idx, quantile in enumerate(range(10,100,10)):
+            params = {
+                "lr": 0.05,
+                "batch_size": 1024,
+                "num_epochs": 50,
+                "hidden_size": 64,
+                "num_layers": 3,
+                "loss_fn": "quantile",
+                "alpha": quantile/100
+                }
+            
+            Params[f"q{quantile}"]=params
+        
 
     return params
 
 
 if __name__ == "__main__":
     
+   
     for target_type in ["wind","solar"]:
-        #训练器配置
-        Regressors=[LGBMRegressor,CatBoostRegressor,MLPRegressor,ExtraTreesRegressor]
-        Regressor_names=["LGBM","CatBoost","MLP","ExtraTrees"]
+        
+        #==========================================训练器配置=================================
+        Regressors=[LGBMRegressor,CatBoostRegressor]
+        Regressor_names=["LGBM","CatBoost"]
+        
+        
         Trainers={}
         for regressor_name,regressor in zip(Regressor_names,Regressors):
             configs={
@@ -72,75 +94,60 @@ if __name__ == "__main__":
             }
             Trainers[regressor_name]=Trainer(**configs)
         
-            #分别训练每个模型(k-fold)
-            Params=defineParams(regressor_name)
-            Trainers[regressor_name].kfold_train(Params,num_folds=3)    
-    
-        #按顺序加载每个元学习器的预测结果
-        Predictions=[]
-        for regressor_name in Regressor_names:
-            Predictions.append(np.load(f"predictions/{regressor_name}/"+configs["type"]+".npy"))
-        
-        '''
-        #加载Benchmark模型的预测结果
-        with open(f"models/benchmark/{target_type}_q50.pickle", 'rb') as f:
-            mod_benchmark= smpickle.load_pickle(f)
-
-        if target_type=="solar":
-            features_table=Trainers[Regressor_names[0]].train_features_true["rad_t_dwd"].to_frame()
-            features_table.rename(columns={"rad_t_dwd":"SolarDownwardRadiation"},inplace=True)
-        elif target_type=="wind":
-            features_table=Trainers[Regressor_names[0]].train_features_true["ws_100_t_dwd_1"].to_frame()
-            features_table.rename(columns={"ws_100_t_dwd_1":"WindSpeed"},inplace=True)
-
-        predictions=np.array(mod_benchmark.predict(features_table))
-        Predictions.append(predictions)
-        '''
-        
-        #创建数据集
-        Features=np.stack(Predictions,axis=-1)
-        Labels=Trainers[Regressor_names[0]].train_labels_true
-    
-        #训练元学习器    
-        for idx, quantile in enumerate(range(10,100,10)):
+        #===============================训练基学习器=====================================
+        for regressor_name in tqdm(Regressor_names):
             
+            Params=defineParams(regressor_name,target_type)
+            Trainers[regressor_name].kfold_train_parallel(Params,num_folds=2)    
+
+
+        #===============================训练元学习器=====================================
+        for quantile in range(10,100,10):
+            
+            #加载基学习器预测结果
+            Predictions=[]
+            for regressor_name in Regressor_names:
+                Predictions.append(np.load(f"predictions/{regressor_name}/{target_type}_q{quantile}.npy"))
+
+            #加载Benchmark模型的预测结果
+            with open(f"models/benchmark/{target_type}_q{quantile}.pickle", 'rb') as f:
+                mod_benchmark= smpickle.load_pickle(f)
+
+            if target_type=="solar":
+
+                features_table=Trainers[Regressor_names[0]].train_features_table["rad_t_dwd"].to_frame()            
+                features_table.rename(columns={"rad_t_dwd":"SolarDownwardRadiation"},inplace=True)
+            elif target_type=="wind":
+
+                features_table=Trainers[Regressor_names[0]].train_features_table["ws_100_t_dwd_1"].to_frame()
+                features_table.rename(columns={"ws_100_t_dwd_1":"WindSpeed"},inplace=True)
+                
+            predictions=np.array(mod_benchmark.predict(features_table))
+            Predictions.append(predictions)
+
+            #创建数据集
+            Features=np.stack(Predictions,axis=-1)
+            Labels=Trainers[Regressor_names[0]].train_labels
+
+
+            #参数定义
             params={
-                'objective': 'quantile',
-                'num_leaves': 7,
-                'n_estimators': 50,
-                'max_depth':10,
-                'lambda_l2':2,
-                'verbose':-1,
-                'alpha':quantile/100
+                "lr": 0.01,
+                "batch_size": 1024,
+                "num_epochs": 20,
+                "hidden_size": 32,
+                "num_layers": 1,
+                "loss_fn": "quantile",
+                "alpha": quantile/100
                 }
             
-            Params[f"q{quantile}"]=params
-    
-            model=LGBMRegressor(**params)
+            #训练
+            model=NNRegressor(**params)
             model.fit(Features,Labels)
-    
+
             #保存模型
-            with open("models/stacking/meta/"+configs["type"]+f"_q{quantile}.pkl","wb") as f:
+            with open(f"models/stacking/meta/{target_type}_q{quantile}.pkl","wb") as f:
                 pickle.dump(model,f)
-
-
-
-
-    
-
-        
-
-
-
-        
-   
-
-    
-    
-    
-    
-    
-    
     
     
     

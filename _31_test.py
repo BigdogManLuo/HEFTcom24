@@ -3,7 +3,7 @@ import torch
 import pandas as pd
 import matplotlib.pyplot as plt
 from comp_utils import pinball
-from forecaster import forecast,forecastByStacking
+from forecaster import forecast,forecastByStacking,forecastByBenchmark
 import pickle
 
 '''-------------------------------测试摘要------------------------------'''
@@ -29,13 +29,11 @@ labels_wind=WindDataset.iloc[:,-1]
 features_solar=SolarDataset.iloc[:,:-1]
 labels_solar=SolarDataset.iloc[:,-1]
 
+wind_forecast_table=features_wind["ws_100_t_dwd_1"].to_frame()
+wind_forecast_table.rename(columns={"ws_100_t_dwd_1":"WindSpeed"},inplace=True)
+solar_forecat_table=features_solar["rad_t_dwd"].to_frame()
+solar_forecat_table.rename(columns={"rad_t_dwd":"SolarDownwardRadiation"},inplace=True)
 
-#z-score标准化(仅对特征)
-with open(f"data/dataset/{source}/Dataset_stats.pkl","rb") as f:
-    Dataset_stats=pickle.load(f)
-
-features_wind=(features_wind-Dataset_stats["Mean"]["features"]["wind"])/Dataset_stats["Std"]["features"]["wind"]
-features_solar.iloc[:,0:-1]=(features_solar.iloc[:,0:-1]-Dataset_stats["Mean"]["features"]["solar"])/Dataset_stats["Std"]["features"]["solar"]
 
 features_wind=np.array(features_wind)
 features_solar=np.array(features_solar)
@@ -48,11 +46,11 @@ hours=IntegratedDataset["hours"]
 
 
 #%% 预测
+
 '''
 params={
     "wind_features":features_wind,
     "solar_features":features_solar,
-    "Dataset_stats":Dataset_stats,
     "hours":hours,
     "full":False,
     "model_name":"LGBM",
@@ -61,12 +59,11 @@ params={
 Total_Generation_Forecast,Wind_Generation_Forecast,Solar_Generation_Forecast=forecast(**params)
 '''
 
+
 #集成学习测试
-'''
 params={
     "wind_features":features_wind,
     "solar_features":features_solar,
-    "Dataset_stats":Dataset_stats,
     "wind_forecast_table":wind_forecast_table,
     "solar_forecat_table":solar_forecat_table,
     "hours":hours,
@@ -74,9 +71,12 @@ params={
 }
 
 Total_Generation_Forecast,Wind_Generation_Forecast,Solar_Generation_Forecast=forecastByStacking(**params)
+
+
+'''调用benchmark'''
+#Total_Generation_Forecast,Wind_Generation_Forecast,Solar_Generation_Forecast=forecastByBenchmark(wind_forecast_table,solar_forecat_table)
+
 '''
-
-
 #混合使用
 params={
     "wind_features":features_wind,
@@ -102,7 +102,7 @@ _,_,Solar_Generation_Forecast=forecastByStacking(**params)
 Total_Generation_Forecast={}
 for quantile in range(10,100,10):
     Total_Generation_Forecast[f"q{quantile}"]=Wind_Generation_Forecast[f"q{quantile}"]+Solar_Generation_Forecast[f"q{quantile}"]
-
+'''
 
 print(recordings)
 #计算分位数损失

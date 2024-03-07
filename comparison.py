@@ -10,7 +10,7 @@ import matplotlib.cm as cm
 #登录
 rebase_api_client = comp_utils.RebaseAPI(api_key = open("team_key.txt").read())
 
-day="2024-02-27"
+day="2024-02-28"
 
 #=======================获取过去提交的预测数据=====================================
 submissions=rebase_api_client.get_submissions(market_day=day)

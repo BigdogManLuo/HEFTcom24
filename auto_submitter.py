@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from comp_utils import send_mes
 import matplotlib.pyplot as plt
-from forecaster import forecast,forecastByBenchmark,forecastByStacking
+from forecaster import forecast,forecastByBenchmark,forecastByStacking,adjust_forecast
 import pickle
 '''-------------------------------提交摘要------------------------------'''
 recordings="""
@@ -202,10 +202,8 @@ Total_Generation_Forecast={}
 for quantile in range(10,100,10):
     Total_Generation_Forecast[f"q{quantile}"]=Wind_Generation_Forecast[f"q{quantile}"]+Solar_Generation_Forecast[f"q{quantile}"]
 
-
-
-
-
+#分位数重新排序，确保大的分位数结果更大
+Total_Generation_Forecast=adjust_forecast(Total_Generation_Forecast)
 
 #合成提交数据
 for quantile in range(10,100,10):

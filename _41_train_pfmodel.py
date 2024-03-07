@@ -24,6 +24,9 @@ params = {
     "output_size": y_train.shape[1],
     "hidden_size": 64,
     "loss_fn": "mse",
+    "alpha": 0.1,
+    "num_layers": 2
+    
 }
 
 

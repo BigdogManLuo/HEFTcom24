@@ -1,10 +1,9 @@
 from statsmodels.iolib import smpickle
 import pickle
 import numpy as np
-#from _21_stacking import MetaMLP
 
 
-# Define a function to adjust the forecast so that it is sorted from q10 to q90 for each time step
+#分位数调整
 def adjust_forecast(forecast):
     quantiles = sorted(forecast.keys(), key=lambda x: int(x[1:]))
     forecast_array = np.array([forecast[q] for q in quantiles])
@@ -14,7 +13,7 @@ def adjust_forecast(forecast):
     
     return forecast
 
-def forecast(wind_features,solar_features,Dataset_stats,hours,full,model_name,WLimit,maxPower=415):
+def forecast(wind_features,solar_features,hours,full,model_name,WLimit,maxPower=415):
 
     #--------------------------------加载模型---------------------------
     Models_wind={}
@@ -47,10 +46,6 @@ def forecast(wind_features,solar_features,Dataset_stats,hours,full,model_name,WL
         output_wind= Models_wind[f"q{quantile}"].predict(wind_features)
         output_solar= Models_solar[f"q{quantile}"].predict(solar_features)
 
-        #逆归一化
-        output_wind=output_wind*Dataset_stats["Std"]["labels"]["wind"]+Dataset_stats["Mean"]["labels"]["wind"]
-        output_solar=output_solar*Dataset_stats["Std"]["labels"]["solar"]+Dataset_stats["Mean"]["labels"]["solar"]
-
         #负值清0
         output_wind[output_wind<0]=0
         output_solar[output_solar<1e-2]=0
@@ -58,7 +53,6 @@ def forecast(wind_features,solar_features,Dataset_stats,hours,full,model_name,WL
         #夜晚光伏全补0
         output_solar[hours<=2]=0
         output_solar[hours>=21]=0
-
 
         Wind_Generation_Forecast[f"q{quantile}"]=output_wind
         Solar_Generation_Forecast[f"q{quantile}"]=output_solar
@@ -144,19 +138,21 @@ def forecastByBenchmark(wind_forecast_table,solar_forecat_table):
     return Total_generation_forecast,Wind_Generation_Forecast,Solar_Generation_Forecast
 
 
-def forecastByStacking(wind_features,solar_features,Dataset_stats,hours,full):
+def forecastByStacking(wind_features,solar_features,hours,full,wind_forecast_table,solar_forecat_table):
     
     #--------------------------------加载模型---------------------------
-    Regressor_names=["LGBM","CatBoost","MLP","ExtraTrees"]
-    Models_wind=[]
-    Models_solar=[]
-    for regressor_name in Regressor_names:
-        with open(f"models/stacking/{regressor_name}/wind.pkl","rb") as f:
-            model=pickle.load(f)
-        Models_wind.append(model)
-        with open(f"models/stacking/{regressor_name}/solar.pkl","rb") as f:
-            model=pickle.load(f)
-        Models_solar.append(model)
+    Regressor_names=["LGBM","CatBoost"]
+    
+    Models_wind={f"q{quantile}" : [] for quantile in range(10,100,10)} 
+    Models_solar={f"q{quantile}" : [] for quantile in range(10,100,10)} 
+    for quantile in range(10,100,10):
+        for regressor_name in Regressor_names:
+            with open(f"models/stacking/{regressor_name}/wind_q{quantile}.pkl","rb") as f:
+                model=pickle.load(f)
+            Models_wind[f"q{quantile}"].append(model)
+            with open(f"models/stacking/{regressor_name}/solar_q{quantile}.pkl","rb") as f:
+                model=pickle.load(f)
+            Models_solar[f"q{quantile}"].append(model)
 
     #--------------------------------加载元学习器模型---------------------------
     Models_wind_meta={}
@@ -181,31 +177,24 @@ def forecastByStacking(wind_features,solar_features,Dataset_stats,hours,full):
         output_solar=[]
         
         #依次预测
-        for model in Models_wind:
+        for model in Models_wind[f"q{quantile}"]:
             output_wind.append(model.predict(wind_features))
             
-        for model in Models_solar:
+        for model in Models_solar[f"q{quantile}"]:
             output_solar.append(model.predict(solar_features))
-
-        '''
+   
         #加载Benchmark模型的预测结果
-        with open("models/benchmark/wind_q50.pickle", 'rb') as f:
+        with open(f"models/benchmark/wind_q{quantile}.pickle", 'rb') as f:
             mod_benchmark_wind= smpickle.load_pickle(f)
 
-        with open("models/benchmark/solar_q50.pickle", 'rb') as f:
+        with open(f"models/benchmark/solar_q{quantile}.pickle", 'rb') as f:
             mod_benchmark_solar= smpickle.load_pickle(f)
 
         output_wind.append(mod_benchmark_wind.predict(wind_forecast_table))
         output_solar.append(mod_benchmark_solar.predict(solar_forecat_table))
-        '''
         
         output_wind=np.stack(output_wind,axis=-1)
         output_solar=np.stack(output_solar,axis=-1)
-        
-
-        #逆归一化
-        output_wind=output_wind*Dataset_stats["Std"]["labels"]["wind"]+Dataset_stats["Mean"]["labels"]["wind"]
-        output_solar=output_solar*Dataset_stats["Std"]["labels"]["solar"]+Dataset_stats["Mean"]["labels"]["solar"]
 
         #元学习器预测
         output_wind=Models_wind_meta[f"q{quantile}"].predict(output_wind)

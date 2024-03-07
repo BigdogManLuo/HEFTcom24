@@ -16,6 +16,9 @@ IntegratedDataset=IntegratedDataset[IntegratedDataset["ref_datetime"].dt.strftim
 IntegratedDataset = IntegratedDataset[(IntegratedDataset["valid_datetime"] - IntegratedDataset["ref_datetime"])<=np.timedelta64(47,"h")]
 IntegratedDataset = IntegratedDataset[(IntegratedDataset["valid_datetime"] - IntegratedDataset["ref_datetime"])>=np.timedelta64(23,"h")]
 
+#取出2024-01-15之前的数据
+IntegratedDataset = IntegratedDataset[IntegratedDataset["ref_datetime"]<="2024-01-15"]
+
 #风电光伏数据集
 columns_wind=pd.read_csv("data/dataset/dwd/WindDataset.csv").columns.tolist()
 columns_solar=pd.read_csv("data/dataset/dwd/SolarDataset.csv").columns.tolist()
