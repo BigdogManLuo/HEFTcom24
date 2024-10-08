@@ -1,311 +1,544 @@
 import pickle
-from typing import Any
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import KFold
-import multiprocessing
-from comp_utils import pinball
-import optuna
-import matplotlib.pyplot as plt
-import torch
 import os
+from tqdm import tqdm
+from itertools import chain
+from scipy.interpolate import interp1d
+from sklearn.linear_model import QuantileRegressor
+from sklearn.utils.fixes import parse_version, sp_version
+from sklearn.linear_model import Lasso
+import matplotlib.pyplot as plt
 
-class Trainer():
 
-    def __init__(self,type,source,Regressor,full,model_name):
-        self.type=type
-        self.source=source
-        self.Regressor=Regressor
-        self.full=full
-        self.model_name=model_name
-        if full==True:
-            self.path="full"
+#============================Evaluation=================================
+def pinball(y,y_hat,alpha):
+
+    return ((y-y_hat)*alpha*(y>=y_hat) + (y_hat-y)*(1-alpha)*(y<y_hat)).mean()
+
+def getRevenue(Xb,Xa,yd,ys):
+    return yd*Xb+(Xa-Xb)*ys-0.07*(Xa-Xb)**2
+
+
+def meanPinballLoss(y_true, y_pred):
+    mpd=0
+    for i in range(10,100,10):
+        mpd+=pinball(y_true,y_pred[f"q{i}"],alpha=i/100)
+    return mpd/9
+
+#============================Solar Post-Processing=======================
+def forecastWithoutPostProcessing(modelling_table):
+
+    #Extract features
+    features_solar=modelling_table.iloc[:,:-1]
+
+    #Forecasting without post-processing
+    Models_solar={}
+    for quantile in chain([0.1],range(1,100,1),[99.9]):
+        with open(f"models/LGBM/full/dwd/solar_q{quantile}.pkl","rb") as f:
+            Models_solar[f"q{quantile}"]=pickle.load(f)
+    predictions = {}
+    for quantile in chain([0.1], range(1, 100, 1), [99.9]):
+        output_solar = Models_solar[f"q{quantile}"].predict(features_solar)
+        output_solar[output_solar < 1e-2] = 0
+        output_solar[modelling_table["hours"] <= 3] = 0
+        output_solar[modelling_table["hours"] >= 21] = 0
+        predictions[f"q{quantile}"] = output_solar
+    predictions_df = pd.DataFrame(predictions)
+    modelling_table = pd.concat([modelling_table, predictions_df], axis=1)
+
+    #Expand features
+    predictions={}
+    for quantile in chain([0.1],range(1,100,1),[99.9]):
+        predictions[f"q{quantile}^2"]=modelling_table[f"q{quantile}"]**2
+    predictions_df=pd.DataFrame(predictions)
+    modelling_table=pd.concat([modelling_table,predictions_df],axis=1)
+
+    return modelling_table
+
+def forecastWithoutPostProcessing_bidding(modelling_table):
+    
+    features_solar=modelling_table.iloc[:,:-1]
+    model_bidding=pickle.load(open("models/LGBM/full/dwd/solar_bidding.pkl","rb"))
+    output_solar=model_bidding.predict(features_solar)
+    output_solar[output_solar<1e-2]=0
+    output_solar[modelling_table["hours"]<=3]=0
+    output_solar[modelling_table["hours"]>=21]=0
+    modelling_table["Predicted"]=output_solar
+    modelling_table["Predicted^2"]=modelling_table["Predicted"]**2
+
+    return modelling_table
+
+def trainPostProcessModel(modelling_table):
+
+    modelling_table=forecastWithoutPostProcessing(modelling_table)
+
+    #Train online post-processing model
+    solver = "highs" if sp_version >= parse_version("1.6.0") else "interior-point"
+    Models_revised={}
+    for quantile in chain([0.1],tqdm(range(1,100,1)),[99.9]):
+        
+        params={
+            "quantile":quantile/100,
+            "alpha":0.1,
+            "solver":solver
+        }
+
+        model_revised=QuantileRegressor(**params)
+
+        features=modelling_table[[f"q{quantile}",f"q{quantile}^2"]].values
+        labels=modelling_table["Solar_MWh_credit"].values
+        model_revised.fit(features,labels)
+
+        Models_revised[f"q{quantile}"]=model_revised
+
+    return Models_revised
+
+def trainPostProcessModel_bidding(modelling_table):
+
+    modelling_table=forecastWithoutPostProcessing_bidding(modelling_table)
+
+    params={
+        "alpha":0.5
+    }
+    model_revised=Lasso(**params)
+    features=modelling_table[["Predicted","Predicted^2"]].values
+    labels=modelling_table["Solar_MWh_credit"].values
+    model_revised.fit(features,labels)
+
+    return model_revised
+
+def generateRollingPostProcessCoffs(track="Forecasting"):
+
+    modelling_table=pd.read_csv("data/dataset/latest/dwd/SolarDataset.csv")
+
+    for i in range(int(modelling_table.shape[0]/48-10)):
+        modelling_table_online=modelling_table[0:480+i*48].copy()
+        if track=="Forecasting":
+            Models_revised=trainPostProcessModel(modelling_table_online)
+        elif track=="Trading":
+            Models_revised=trainPostProcessModel_bidding(modelling_table_online)
         else:
-            self.path="partial"
-        
-        #加载数据集
-        self.dataset=pd.read_csv(f"data/dataset/{source}/{type.capitalize()}Dataset.csv")
-
-        #提取features和labels
-        self.features=self.dataset.iloc[:,:-1]
-        self.labels=self.dataset.iloc[:,-1]
-
-        #z-score标准化
-        with open(f"data/dataset/{source}/Dataset_stats.pkl","rb") as f:
-            self.Dataset_stats=pickle.load(f)
-
-        if type=="solar":
-            self.features.iloc[:,0:-1]=(self.features.iloc[:,0:-1]-self.Dataset_stats["Mean"]["features"][type])/self.Dataset_stats["Std"]["features"][type] #最后一列是hour不需要标准化
-        
-        elif type=="wind":
-            self.features=(self.features-self.Dataset_stats["Mean"]["features"][type])/self.Dataset_stats["Std"]["features"][type]
-        
-        self.labels=(self.labels-self.Dataset_stats["Mean"]["labels"][type])/self.Dataset_stats["Std"]["labels"][type]
-        
-        #转换为numpy数组
-        self.features=np.array(self.features)
-        self.labels=np.array(self.labels)
-
-        #划分训练集和测试集
-        self.train_features=self.features[int(0.35*len(self.features)):int(0.8*len(self.features))]
-        self.train_labels=self.labels[int(0.35*len(self.labels)):int(0.8*len(self.labels))]
-        self.test_features=self.features[int(0.8*len(self.features)):]
-        self.test_labels=self.labels[int(0.8*len(self.labels)):]
-
-        
-        #记录真实值
-        self.train_labels_true=self.train_labels*self.Dataset_stats["Std"]["labels"][self.type]+self.Dataset_stats["Mean"]["labels"][self.type]
-        self.test_labels_true=self.test_labels*self.Dataset_stats["Std"]["labels"][self.type]+self.Dataset_stats["Mean"]["labels"][self.type]
-        
-        #初始化模型
-        self.Models={}
+            raise ValueError("Invalid track")
+        if not os.path.exists(f"models/Rolling_PostProcess/{track}"):
+            os.makedirs(f"models/Rolling_PostProcess/{track}")
+        with open(f"models/Rolling_PostProcess/{track}/solar_{i}.pkl","wb") as f:
+            pickle.dump(Models_revised,f)
 
 
+def plotPowerGeneration(Generation_forecast,labels,filename, x_range0,step_size=600):
+    
+    x_range1=x_range0+step_size
+    x_range=np.arange(x_range0,x_range1)
+    plt.figure(figsize=(12,7))
+    plt.rcParams['font.family'] = ['Times New Roman']
+    plt.rcParams.update({'font.size': 25})
+    l1=plt.plot(x_range,labels[x_range],label="true",linewidth=2)
+    colors=["#cf6a87","#f8a5c2"]
+    l2=plt.fill_between(x_range,Generation_forecast["q10"][x_range],Generation_forecast["q30"][x_range],color=colors[0],alpha=0.5)
+    l3=plt.fill_between(x_range,Generation_forecast["q30"][x_range],Generation_forecast["q50"][x_range],color=colors[1],alpha=0.5)
+    plt.fill_between(x_range,Generation_forecast["q50"][x_range],Generation_forecast["q70"][x_range],color=colors[1],alpha=0.5)
+    plt.fill_between(x_range,Generation_forecast["q70"][x_range],Generation_forecast["q90"][x_range],color=colors[0],alpha=0.5)
+
+    plt.legend([l1[0],l2,l3],["True","q10-q30, q70-q90","q30-q70"],frameon=False,bbox_to_anchor=(1, 1.15),ncol=3)
+
+    plt.xticks(np.arange(x_range0,x_range1+60,step=60),labels=np.arange(0,(x_range1-x_range0)/2+30,step=30))
+
+    plt.gca().spines['bottom'].set_linewidth(2)
+    plt.gca().spines['left'].set_linewidth(2)
+    plt.gca().spines['top'].set_linewidth(2)
+    plt.gca().spines['right'].set_linewidth(2)
+    plt.tick_params(width=2)
+
+    plt.xlabel("Time(h)")
+    plt.ylabel("Solar Power(MWh)")
+
+    plt.savefig(f"figs/{filename}",dpi=600)
+
+#==========================Forecasting=================================
+def quantile_sort(forecast):
+
+    quantiles = forecast.keys() #sorted(forecast.keys(), key=lambda x: int(x[1:]))
+    forecast_array = np.array([forecast[q] for q in quantiles])
+    forecast_array_sorted = np.sort(forecast_array, axis=0)
+    for i, q in enumerate(quantiles):
+        forecast[q] = forecast_array_sorted[i, :]
+    
+    return forecast
+
+def forecast_wind(wind_features,full,WLimit,availableCapacities=None,model_name="LGBM",source="dwd"):
+
+    if full:
+        path="full"
+    else:
+        path="train"
+ 
+    Wind_Generation_Forecast={}
+    coff_ac=np.linspace(0.92,1,101)
+    for idx,quantile in enumerate(chain([0.1],range(1,100,1),[99.9])):
+
+        with open(f"models/{model_name}/{path}/{source}/wind_q{quantile}.pkl","rb") as f:
+            model=pickle.load(f)
+
+        output=model.predict(wind_features)
+        output[output<0]=0
+
+        #Plan Outage
+        if WLimit:
+            output=np.where(output>coff_ac[idx]*availableCapacities,coff_ac[idx]*availableCapacities,output)
+
+        Wind_Generation_Forecast[f"q{quantile}"]=output
         
-    def train(self,Params):
-        if self.full==True:
-            train_features=self.features[int(0.35*len(self.features)):int(0.95*len(self.features))]
-            train_labels=self.labels[int(0.35*len(self.labels)):int(0.95*len(self.features))]
+    #Quantile Sort
+    Wind_Generation_Forecast=quantile_sort(Wind_Generation_Forecast)
+
+    return Wind_Generation_Forecast
+
+def forecast_wind_ensemble(wind_features_dwd,wind_features_gfs,full,WLimit,model_name="LGBM",availableCapacities=None):
+    
+    if full:
+        path="full"
+    else:
+        path="train"
+    
+    #Separate Forecasting for dwd and gfs
+    temp_dict={}
+    for source in ["dwd","gfs"]:
+        configs={
+            "wind_features":wind_features_dwd if source=="dwd" else wind_features_gfs,
+            "full":full,
+            "source":source,
+            "WLimit":False  # Ensemble first and then truncated
+        }
+        Wind_Generation_Forecast=forecast_wind(**configs)
+        
+        for quantile in chain([0.1],range(1,100,1),[99.9]):
+            temp_dict[f"{source}_wind_q{quantile}"]=Wind_Generation_Forecast[f"q{quantile}"]
+    modelling_table=pd.DataFrame(temp_dict)
+    
+    #Ensemble Forecasting
+    Wind_Generation_Forecast={}
+    coff_ac=np.linspace(0.92,1,101)
+    for idx,quantile in enumerate(chain([0.1],range(1,100,1),[99.9])):
+        with open(f"models/Ensemble/{path}/wind_q{quantile}.pkl","rb") as f:
+            model=pickle.load(f)
+        feature_meta=modelling_table[[f"dwd_wind_q{quantile}",f"gfs_wind_q{quantile}"]].values
+        #Forecast
+        output=model.predict(feature_meta)
+        output[output<0]=0
+        
+        #Plan Outage    
+        if WLimit:
+            output=np.where(output>coff_ac[idx]*availableCapacities,coff_ac[idx]*availableCapacities,output)
+        
+        Wind_Generation_Forecast[f"q{quantile}"]=output
+    
+    #Quantile Sort
+    Wind_Generation_Forecast=quantile_sort(Wind_Generation_Forecast)
+
+    return Wind_Generation_Forecast
+
+
+def forecast_solar(solar_features,hours,full,SolarRevise,rolling_test=False,source="dwd",model_name="LGBM"):
+    
+    if full:
+        path="full"
+    else:
+        path="train"
+
+    Solar_Generation_Forecast={}
+    for idx,quantile in enumerate(chain([0.1],range(1,100,1),[99.9])):
+
+        #Load models
+        with open(f"models/{model_name}/{path}/{source}/solar_q{quantile}.pkl","rb") as f:
+            model=pickle.load(f)
+        
+        #Forecasting
+        output=model.predict(solar_features)
+        output[output<1e-2]=0
+
+        #Power at night is set to 0
+        output[hours<=3]=0
+        output[hours>=21]=0
+        
+        #Online Post-Processing
+        if SolarRevise:
+            if rolling_test:
+                
+                if not os.listdir("models/Rolling_PostProcess/Forecasting"):
+                    generateRollingPostProcessCoffs()
+
+                for i in range(int(output.shape[0]/48-10)): # No corrections 10 days prior
+                    with open(f"models/Rolling_PostProcess/Forecasting/solar_{i}.pkl","rb") as f:
+                        Model_revised=pickle.load(f)
+                    output_solar_origin=output[480+i*48:480+(i+1)*48].reshape(-1,1).copy()
+                    features_revised=np.concatenate([output_solar_origin,output_solar_origin**2],axis=1)
+                    output[480+i*48:480+(i+1)*48]=Model_revised[f"q{quantile}"].predict(features_revised)
+            
+            # For Competition use
+            else:
+                with open(f"models/Revised/solar_q{quantile}.pkl","rb") as f:
+                    model_solar_revised=pickle.load(f)
+                output_solar_origin=output.reshape(-1,1).copy()
+                features_revised=np.concatenate([output_solar_origin,output_solar_origin**2],axis=1)
+                output=model_solar_revised.predict(features_revised)
+            
+            output[output<1e-2]=0
+
+            #Power at night is set to 0
+            output[hours<=3]=0
+            output[hours>=21]=0
+        
+        Solar_Generation_Forecast[f"q{quantile}"]=output
+    
+    #Quantile Sort
+    Solar_Generation_Forecast=quantile_sort(Solar_Generation_Forecast)
+
+    return Solar_Generation_Forecast
+
+def forecast_solar_ensemble(solar_features_dwd,solar_features_gfs,hours,full,model_name,SolarRevise):
+    
+    if full:
+        path="full"
+    else:
+        path="train"
+    
+    #Separate Forecasting for dwd and gfs
+    modelling_table=pd.DataFrame()
+    for source in ["dwd","gfs"]:
+        configs={
+            "solar_features":solar_features_dwd if source=="dwd" else solar_features_gfs,
+            "hours":hours,
+            "full":full,
+            "model_name":model_name,
+            "source":source,
+            "SolarRevise":SolarRevise
+        }
+        Solar_Generation_Forecast=forecast_solar(**configs)
+        for quantile in range(10,100,10):
+            modelling_table[f"{source}_solar_q{quantile}"]=Solar_Generation_Forecast[f"q{quantile}"]
+    
+    #Ensemble Forecasting
+    Solar_Generation_Forecast={}
+    for quantile in range(10,100,10):
+        with open(f"models/Ensemble/{path}/solar_q{quantile}.pkl","rb") as f:
+            model=pickle.load(f)
+        feature_meta=modelling_table[[f"dwd_solar_q{quantile}",f"gfs_solar_q{quantile}"]]
+        #Forecast
+        output=model.predict(feature_meta)
+        output[output<1e-2]=0
+
+        Solar_Generation_Forecast[f"q{quantile}"]=output
+    
+    #Quantile Sort
+    Solar_Generation_Forecast=quantile_sort(Solar_Generation_Forecast)
+
+    return Solar_Generation_Forecast
+
+def forecast_total(wind_features_dwd,wind_features_gfs,solar_features,hours,full,WLimit,SolarRevise,availableCapacities=None,rolling_test=False,dx=1e-1,aggregation="True"):
+    
+    params_wind={
+        "wind_features_dwd":wind_features_dwd,
+        "wind_features_gfs":wind_features_gfs,
+        "full":full,
+        "WLimit":WLimit,
+        "availableCapacities":availableCapacities
+    }
+
+    params_solar={
+        "solar_features":solar_features,
+        "hours":hours,
+        "full":full,
+        "SolarRevise":SolarRevise,
+        "rolling_test":rolling_test
+    }
+
+    Wind_Generation_Forecast=forecast_wind_ensemble(**params_wind)
+    Solar_Generation_Forecast=forecast_solar(**params_solar)
+
+    if aggregation:
+        Total_generation_forecast=QuantileAdd(Wind_Generation_Forecast,Solar_Generation_Forecast,dx)
+    else:
+        Total_generation_forecast={}
+        for quantile in range(10,100,10):
+            Total_generation_forecast[f"q{quantile}"]=Wind_Generation_Forecast[f"q{quantile}"]+Solar_Generation_Forecast[f"q{quantile}"]
+
+    return Total_generation_forecast,Wind_Generation_Forecast,Solar_Generation_Forecast
+
+def QuantileAdd(quantile_values_X,quantile_values_Y,dx):
+    quantiles = quantile_values_X.keys()
+    forecast_array_X = np.array([quantile_values_X[q] for q in quantiles])
+    forecast_array_Y = np.array([quantile_values_Y[q] for q in quantiles])
+    Total_generation_forecast={f"q{quantile}": np.zeros(forecast_array_X.shape[1]) for quantile in range(10,100,10)}
+    quantiles = np.arange(0,101,1)
+    for i in range(forecast_array_X.shape[1]):
+        
+        X_values=forecast_array_X[:,i]
+        Y_values=forecast_array_Y[:,i]
+        
+        #If the PV intervals are small then just add them up
+        if Y_values[90]>600:
+            F_x,f_X,x_values=getPDF(quantiles,X_values,dx)
+            F_y,f_Y,y_values=getPDF(quantiles,Y_values,dx)
+             
+            f_Z = np.convolve(f_X, f_Y, mode='full') * dx
+
+            # Determine the new domain for Z
+            z_min = x_values[0] + y_values[0]
+            z_max = x_values[-1] + y_values[-1]
+            z_range_0 = np.arange(z_min, z_max, dx)
+            z_range_1 = np.arange(z_min, z_max+dx, dx)
+            
+            # Make sure f_Z is the same length as z_range_1 and z_range_0.
+            if len(f_Z)!=len(z_range_0) and len(f_Z)!=len(z_range_1):
+                print("Error")
+                
+            try:
+                f_Z /= np.trapz(f_Z, z_range_0)
+                z_range=z_range_0
+            except:
+                f_Z /= np.trapz(f_Z, z_range_1)
+                z_range=z_range_1
+
+            F_Z = np.cumsum(f_Z) * dx
+            
+            #Extract target quantiles value
+            for quantile in range(10,100,10):
+                Total_generation_forecast[f"q{quantile}"][i]=np.interp(quantile/100, F_Z, z_range)
+        
         else:
-            train_features=self.train_features
-            train_labels=self.train_labels
-
-        #训练
-        for quantile in range(10,100,10):
-            self.Models[f"q{quantile}"]=self.Regressor(**Params[f"q{quantile}"])
-            self.Models[f"q{quantile}"].fit(train_features,train_labels)
-
-        #保存
-        for quantile in range(10,100,10):
-            with open(f"models/{self.model_name}/{self.path}/{self.type}_q{quantile}.pkl","wb") as f:
-                pickle.dump(self.Models[f"q{quantile}"],f)
-                
-    def test(self):
-        
-        test_features=self.test_features
-        test_labels=self.test_labels
-
-        #label 反归一化
-        test_labels=test_labels*self.Dataset_stats["Std"]["labels"][self.type]+self.Dataset_stats["Mean"]["labels"][self.type]
-
-        #加载模型
-        Models={}
-        for quantile in range(10,100,10):
-            with open(f"models/{self.model_name}/{self.path}/{self.type}_q{quantile}.pkl","rb") as f:
-                Models[f"q{quantile}"]=pickle.load(f)
-
-        #测试
-        predictions={}
-        Pinball_Loss={}
-        for quantile in range(10,100,10):
-            #前向
-            y_hat=Models[f"q{quantile}"].predict(test_features)
-
-            #反归一化
-            y_hat=y_hat*self.Dataset_stats["Std"]["labels"][self.type]+self.Dataset_stats["Mean"]["labels"][self.type]
-
-            #计算损失
-            loss=pinball(y=test_labels,y_hat=y_hat,alpha=quantile/100)
-
-            #保存
-            predictions[f"q{quantile}"]=y_hat
-            Pinball_Loss[f"q{quantile}"]=loss
-
-        #计算平均得分
-        Pinball_Loss_mean=np.array(list(Pinball_Loss.values())).mean()
-        print("Score:",Pinball_Loss_mean)
-        
-        #展示50%分位数预测-真实值散点图
-        plt.scatter(test_labels,predictions["q50"],color="blue",s=10,alpha=0.3)
-        plt.plot(test_labels,test_labels,color="red",linestyle="--")
-        plt.xlabel("True")
-        plt.ylabel("Predicted")
-        plt.show()
-        
             
-    def kfold_train(self,Params,num_folds):
-        
-        kf = KFold(n_splits=num_folds)
-        predictions =[]
-
-        #将训练数据划分为多份
-        for train_index, val_index in kf.split(self.train_features):
-
-            #在当前份上训练
-            train_features=self.train_features[train_index]
-            train_labels=self.train_labels[train_index]
-            val_features=self.train_features[val_index]
-            model=self.Regressor(**Params)
-            model.fit(train_features,train_labels)
-
-            #在当前份上预测
-            prediction=model.predict(val_features)
-
-            #反归一化
-            prediction=prediction*self.Dataset_stats["Std"]["labels"][self.type]+self.Dataset_stats["Mean"]["labels"][self.type]
-                
-            #合并
-            predictions.append(prediction)
-
-        predictions=np.concatenate(predictions,axis=0)
-
-        #保存结果，如果路径不存在则创建
-        if not os.path.exists(f"predictions/{self.model_name}"):
-            os.makedirs(f"predictions/{self.model_name}")
-        np.save(f"predictions/{self.model_name}/{self.type}.npy",predictions)
-
-        self.predictions=predictions
-
-        #保存模型，如果路径不存在则创建
-        if not os.path.exists(f"models/stacking/{self.model_name}/"):
-            os.makedirs(f"models/stacking/{self.model_name}/")
-        with open(f"models/stacking/{self.model_name}/{self.type}.pkl","wb") as f:
-            pickle.dump(model,f)
-
-
-class HyperParamsOptimizer():
+            for quantile in range(10,100,10):
+                Total_generation_forecast[f"q{quantile}"][i]=quantile_values_X[f"q{quantile}"][i]+quantile_values_Y[f"q{quantile}"][i]
     
-    def __init__(self,train_features,train_labels,Regressor,params_raw):
-        self.train_features=train_features
-        self.train_labels=train_labels
-        self.Regressor=Regressor
-        self.params_raw=params_raw
-    
-    def objective(self,trial,quantile):
-            
-        #交叉验证
-        cv = KFold(n_splits=4, shuffle=True, random_state=2048)
-        cv_scores = np.empty(4)
-        for idx, (train_idx, test_idx) in enumerate(cv.split(self.train_features, self.train_labels)):
-            X_train, X_test = self.train_features[train_idx], self.train_features[test_idx]
-            y_train, y_test = self.train_labels[train_idx], self.train_labels[test_idx]
+    return Total_generation_forecast
 
-            model=self.Regressor(**self.params_raw)
-            model.fit(X_train,y_train,eval_set=[(X_test,y_test)])
-            #在当前份上预测
-            preds=model.predict(X_test)
-            
-            cv_scores[idx] = pinball(y_test,preds,alpha=quantile/100)
-            
-        return np.mean(cv_scores)
+def getPDF(quantiles,quantile_values,dx):
+
+    probabilities = quantiles / 100.0
+    cdf = interp1d(quantile_values, probabilities, kind='linear') 
+    x_values = np.arange(quantile_values.min(), quantile_values.max(), dx)
+    cdf_values = cdf(x_values)
+    pdf_values = np.gradient(cdf_values, x_values)
+    pdf_values = pdf_values / np.trapz(pdf_values, x_values)
     
-    def optuna_train(self,quantil):
-        study = optuna.create_study(direction="minimize")
-        func = lambda trial: self.objective(trial,quantil)
-        study.optimize(func, n_trials=20)
-        print(f"\tquantil:{quantil}\tBest params:")
-        for key, value in study.best_params.items():
-            print(f"\t\t{key}: {value}")
-            
-        #保存
-        with open(f"best_params/{self.model_name}/{self.type}_q{quantil}.pkl","wb") as f:
-            pickle.dump(study.best_params,f)
-            
-    def optuna_train_parallel(self):
-        #创建多进程
-        Process=[]
-        for quantile in range(10,100,10):
-            Process.append(multiprocessing.Process(target=self.optuna_train,args=(quantile,)))
+    return cdf_values,pdf_values,x_values
+
+#=============================Bidding=================================
+
+def forecast_bidding_wind(wind_features,full,source,WLimit,model_name="LGBM",availableCapacity=None):
+
+    #Load models
+    if full:
+        path="full"
+    else:
+        path="train"
+    with open(f"models/{model_name}/{path}/{source}/wind_bidding.pkl","rb") as f:
+        model=pickle.load(f)
+
+    #Forecast
+    output=model.predict(wind_features)
+    output[output<0]=0
+    
+    #Plan Outage
+    if WLimit:
+        output=np.where(output>0.95*availableCapacity,0.95*availableCapacity,output)
         
-        #启动进程
-        for p in Process:
-            p.start()
+    return output
 
-        #等待进程结束
-        for p in Process:
-            p.join()
-
-
-class Dataset(torch.utils.data.Dataset):
-    def __init__(self,features,labels):
-        self.features=torch.tensor(features,dtype=torch.float32)
-        self.labels=torch.tensor(labels,dtype=torch.float32)
+def forecast_bidding_wind_ensemble(wind_features_dwd,wind_features_gfs,full,WLimit,model_name="LGBM",availableCapacity=None):
         
-    def __getitem__(self,index):
-        return self.features[index],self.labels[index]
+    if full:
+        path="full"
+    else:
+        path="train"
     
-    def __len__(self):
-        return len(self.features)
+    temp_dict={}
+    for source in ["dwd","gfs"]:
+        configs={
+            "wind_features":wind_features_dwd if source=="dwd" else wind_features_gfs,
+            "full":full,
+            "source":source,
+            "WLimit":WLimit,
+            "availableCapacity":availableCapacity
+        }
+        temp_dict[f"wind_bidding_{source}"]=forecast_bidding_wind(**configs)
+    modelling_table=pd.DataFrame(temp_dict)
+        
+    '''
+    with open(f"models/Ensemble/{path}/wind_bidding.pkl","rb") as f:
+        model=pickle.load(f)
+    '''
+    feature_meta=modelling_table[["wind_bidding_dwd","wind_bidding_gfs"]]
+
+    output=feature_meta.iloc[:,0]*0.58+feature_meta.iloc[:,1]*0.42
+    output[output<0]=0
     
-class NNRegressor():
-    def __init__(self,lr,batch_size,num_epochs,input_size,output_size,hidden_size,loss_fn,alpha,num_layers,verbose=False):
-        self.lr=lr
-        self.batch_size=batch_size
-        self.num_epochs=num_epochs
-        self.hidden_size=hidden_size
-        self.loss_fn=loss_fn
-        self.verbose=verbose
-        self.num_layers=num_layers
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.alpha=alpha
-        if loss_fn=="quantile":
-            self.criterion = lambda y,y_hat: pinball(y=y,y_hat=y_hat,alpha=alpha)
-        elif loss_fn=="mse":
-            self.criterion = torch.nn.MSELoss()
-        elif loss_fn=="mae":
-            self.criterion = torch.nn.L1Loss()
+    return output
+
+def forecast_bidding_solar(solar_features,hours,full,SolarRevise,rolling_test=False,source="dwd",model_name="LGBM"):
+    
+    if full:
+        path="full"
+    else:
+        path="train"
+
+    with open(f"models/{model_name}/{path}/{source}/solar_bidding.pkl","rb") as f:
+        model=pickle.load(f)
+    output=model.predict(solar_features)
+    output[output<1e-2]=0
+    output[hours<=3]=0
+    output[hours>=21]=0
+
+    if SolarRevise:
+        if rolling_test:
+            if not os.listdir("models/Rolling_PostProcess/Trading"):
+                generateRollingPostProcessCoffs(track="Trading")
+
+            for i in range(int(output.shape[0]/48-10)):
+                with open(f"models/Rolling_PostProcess/Trading/solar_{i}.pkl","rb") as f:
+                    Model_revised=pickle.load(f)
+                output_solar_origin=output[480+i*48:480+(i+1)*48].reshape(-1,1).copy()
+                features_revised=np.concatenate([output_solar_origin,output_solar_origin**2],axis=1)
+                output[480+i*48:480+(i+1)*48]=Model_revised.predict(features_revised)
+
+        # For Competition use
         else:
-            raise ValueError("loss_fn must be one of ['quantile','mse','mae']")
+            with open(f"models/Revised/solar_bidding.pkl","rb") as f:
+                model_solar_revised=pickle.load(f)
+            output_solar_origin=output.reshape(-1,1).copy()
+            features_revised=np.concatenate([output_solar_origin,output_solar_origin**2],axis=1)
+            output=model_solar_revised.predict(features_revised)
+
+        output[output<1e-2]=0
+
+        output[hours<=3]=0
+        output[hours>=21]=0
+
+    return output
 
 
-        #定义模型(根据input_size,output_size,hidden_size和num_layers)
-        self.model=torch.nn.Sequential()
-        self.model.add_module("input",torch.nn.Linear(input_size,hidden_size))
-        self.model.add_module("relu",torch.nn.ReLU())
-        for i in range(num_layers-1):
-            self.model.add_module(f"hidden_{i}",torch.nn.Linear(hidden_size,hidden_size))
-            self.model.add_module(f"relu_{i}",torch.nn.ReLU())
-        self.model.add_module("output",torch.nn.Linear(hidden_size,output_size))
-        self.model.to(device=self.device)
+def forecast_bidding(wind_features_dwd,wind_features_gfs,solar_features,full,hours,WLimit,SolarRevise,availableCapacity=None,rolling_test=False):
 
-    def fit(self,features,labels):
+    params_wind={
+        "wind_features_dwd":wind_features_dwd,
+        "wind_features_gfs":wind_features_gfs,
+        "full":full,
+        "WLimit":WLimit,
+        "availableCapacity":availableCapacity
+    }
 
-        #定义优化器
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
+    params_solar={
+        "solar_features":solar_features,
+        "hours":hours,
+        "full":full,
+        "SolarRevise":SolarRevise,
+        "rolling_test":rolling_test
+    }
 
-        #创建Dataset和DataLoader
-        dataset=Dataset(features,labels)
-        dataloader=torch.utils.data.DataLoader(dataset,batch_size=self.batch_size,shuffle=True)
+    wind_bidding=forecast_bidding_wind_ensemble(**params_wind)
+    solar_bidding=forecast_bidding_solar(**params_solar)
+    total_bidding=wind_bidding+solar_bidding
 
-        for epoch in range(self.num_epochs):
-            self.model.train()
-            train_loss_tmp=0
-            for i, (feature, label) in enumerate(dataloader):
-
-                #数据转移到计算设备
-                feature = feature.to(device=self.device)
-                label = label.to(device=self.device).unsqueeze(1)
-
-                #前向传播
-                outputs = self.model(feature)
-
-                #计算损失
-                if outputs.shape!=label.shape:
-                    raise ValueError("outputs shape is not equal to label shape")
-                else:
-                    loss = self.criterion(y_hat=outputs,y=label)
-
-                #反向传播
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-                
-                #记录损失
-                train_loss_tmp+=loss.item()
-
-            train_loss_tmp=train_loss_tmp/(i+1)
-
-            if self.verbose==True:
-                print(f"Epoch:{epoch+1}\tLoss:{train_loss_tmp}")
-        
-    def predict(self,features):
-        self.model.eval()
-        features=torch.tensor(features,dtype=torch.float32).to(device=self.device)
-        return self.model(features).detach().cpu().numpy().flatten()
-    
-
-    def save(self,path):
-        torch.save(self.model.state_dict(),path)
-    
-
+    return total_bidding
 
