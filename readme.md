@@ -1,4 +1,4 @@
-# HEFTCom2024: Probabilistic Energy Forecasting and Trading
+# HEFTCom2024: Probabilistic Energy Forecasting and Trading Competition
 
 ![Static Badge](https://img.shields.io/badge/language-python-%20)
 ![Static Badge](https://img.shields.io/badge/license-MIT-a?color=blue)
