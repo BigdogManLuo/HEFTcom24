@@ -1,19 +1,19 @@
-# HEFTCom2024: Probabilistic Energy Forecasting and Trading
+# HEFTCom2024: Probabilistic Energy Forecasting and Trading Competition
 
 ![Static Badge](https://img.shields.io/badge/language-python-%20)
 ![Static Badge](https://img.shields.io/badge/license-MIT-a?color=blue)
 
-This repository contains the code used in the paper **"A Hybrid Strategies for HEFTCom2024 Probabilistic Energy Forecasting and Trading Tasks based on Ensemble Learning Methods"**, which details the solutions developed by Team GEB for the Hybrid Energy Forecasting and Trading Competition 2024 (HEFTCom2024). In HEFTCom2024 final leaderboard, we ranked **1st** among student teams. We also ranked **3rd** in Trading Track and **4th** in Forecasting Track. Our solutions provide accurate probabilistic forecasts for a hybrid power plant and achieving significant trading revenue.
+This repository contains the code used in the paper **"A Hybrid Strategy for HEFTCom2024 Probabilistic Energy Forecasting and Trading Tasks based on Gradient Boosting Machines"**, which details the solutions developed by Team GEB for the Hybrid Energy Forecasting and Trading Competition 2024 [(HEFTCom2024)](https://ieee-dataport.org/competitions/hybrid-energy-forecasting-and-trading-competition). In HEFTCom2024 final leaderboard, we ranked **1st** among student teams. We also ranked **3rd** in Trading Track and **4th** in Forecasting Track. Our solutions provide accurate probabilistic forecasts for a hybrid power plant and achieving significant trading revenue.
 
 ## Overview
 
 The codebase is structured to reproduce the key methods described in the paper:
 
-1. **Stacking Models** trained on various Numerical Weather Predictions (NWPs) for wind power forecasting. 
+1. **Stacking Sister Models** trained on various Numerical Weather Predictions (NWPs) for wind power forecasting. 
 2. **Online Post-Processing** model to address distribution shifts caused by increased solar capacity in the online test set.
 3. **Probabilistic Aggregation** technique to provide accurate quantile forecasts of total hybrid generation.
 4. **Stochastic Trading Strategy** to maximize expected trading revenue considering uncertainties in electricity prices.
-5. **Value-Oriented Price Spread Forecasting** to further enhance the trading revenue.
+
 
 ## Usage
 
@@ -77,11 +77,11 @@ python -m _24_test_trading_history.py
 python -m _24_test_trading_latest.py
 ```
 
-Validate the effectiveness of the value-oriented price spread forecasting:
+To explore the potential for further enhancing the trading revenue by value-oriented price spread forecasting, run the following code:
 ```
-python -m _31_vof_pre_train_history.py
+python -m _31_mse_oriented_history.py
 python -m _32_vof_history.py
-python -m _33_vof_pre_train_latest.py
+python -m _33_mse_oriented_latest.py
 python -m _34_vof_latest.py
 ```
 

@@ -227,8 +227,6 @@ def generateTestPricesLatest(IntegratedDataset):
     return DA_Price,SS_Price
 
 
-
-
 #Trading Loss
 def trading_loss(power_error,pd_pred,Price_diff):
     #power_pred: power forecast
@@ -300,3 +298,12 @@ def train(num_epochs,train_dataloader,device,optimizer,model):
             optimizer.step()
 
     return model
+
+def testRevenue(model,features_test,test_data,DA_Price,SS_Price):
+    model.eval()
+    pd_pred=model(torch.tensor(np.array(features_test,dtype=np.float32),dtype=torch.float32,device=device)).detach().squeeze().cpu().numpy()
+    biddings= test_data["power_pred"] + pd_pred
+    biddings[biddings<0]=0
+    biddings[biddings>1800]=1800
+    Revenue=utils.getRevenue(biddings,test_data["total_generation_MWh"],DA_Price,SS_Price)
+    return Revenue

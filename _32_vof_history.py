@@ -27,7 +27,6 @@ model = MLPModel(input_size=features_train.shape[1], hidden_layer_size=32, outpu
 model.load_state_dict(torch.load("models/Prices/history/pre_train_model.pth"))
 optimizer = optim.Adam(model.parameters(), lr=1e-5)
 
-
 #%% Training Loop
 model.eval()
 model=train(50,train_dataloader,device,optimizer,model)

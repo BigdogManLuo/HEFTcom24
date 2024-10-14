@@ -9,7 +9,7 @@ features_wind_gfs,labels_wind_gfs,features_solar_gfs,labels_solar_gfs=utils.load
 IntegratedDataset=pd.read_csv("data/dataset/test/IntegratedDataset.csv")
 
 #Energy Data
-energy_data=pd.read_csv("data/Energy_Data_20200920_20240118.csv")
+energy_data=pd.read_csv("data/raw/Energy_Data_20200920_20240118.csv")
 energy_data["dtm"] = pd.to_datetime(energy_data["dtm"])
 energy_data["Wind_MWh_credit"] = 0.5*energy_data["Wind_MW"] - energy_data["boa_MWh"]
 energy_data["Solar_MWh_credit"] = 0.5*energy_data["Solar_MW"]

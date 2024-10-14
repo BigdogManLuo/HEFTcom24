@@ -1,6 +1,5 @@
 from lightgbm import LGBMRegressor
 #from catboost import CatBoostRegressor
-from utils import Trainer
 from itertools import chain
 import os
 import pandas as pd

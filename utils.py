@@ -11,6 +11,20 @@ from sklearn.linear_model import Lasso
 import matplotlib.pyplot as plt
 
 
+def loadFeaturesandLabels(pathtype,source):
+
+    WindDataset=pd.read_csv(f"data/dataset/{pathtype}/{source}/WindDataset.csv")
+    SolarDataset=pd.read_csv(f"data/dataset/{pathtype}/{source}/SolarDataset.csv")
+
+    features_wind=WindDataset.iloc[:,:-1].values
+    labels_wind=WindDataset.iloc[:,-1].values
+
+    features_solar=SolarDataset.iloc[:,:-1].values
+    labels_solar=SolarDataset.iloc[:,-1].values
+
+    return features_wind,labels_wind,features_solar,labels_solar
+
+
 #============================Evaluation=================================
 def pinball(y,y_hat,alpha):
 
@@ -264,7 +278,10 @@ def forecast_solar(solar_features,hours,full,SolarRevise,rolling_test=False,sour
         #Online Post-Processing
         if SolarRevise:
             if rolling_test:
-                
+
+                if not os.path.exists("models/Rolling_PostProcess/Forecasting"):
+                    os.makedirs("models/Rolling_PostProcess/Forecasting")
+
                 if not os.listdir("models/Rolling_PostProcess/Forecasting"):
                     generateRollingPostProcessCoffs()
 
@@ -492,6 +509,10 @@ def forecast_bidding_solar(solar_features,hours,full,SolarRevise,rolling_test=Fa
 
     if SolarRevise:
         if rolling_test:
+            
+            if not os.path.exists("models/Rolling_PostProcess/Trading"):
+                os.makedirs("models/Rolling_PostProcess/Trading")
+
             if not os.listdir("models/Rolling_PostProcess/Trading"):
                 generateRollingPostProcessCoffs(track="Trading")
 

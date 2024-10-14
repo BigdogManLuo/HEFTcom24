@@ -32,5 +32,5 @@ mpd_solar1=utils.meanPinballLoss(labels_solar_dwd,Solar_Generation_Forecast1)
 print(f"Without Online Post-Processing:{mpd_solar0}\nWith Online Post-Processing:{mpd_solar1}")
 
 
-utils.plotPowerGeneration(Solar_Generation_Forecast0,labels_solar_dwd,filename="forecast_origin.png")
-utils.plotPowerGeneration(Solar_Generation_Forecast1,labels_solar_dwd,filename="forecast_revised.png")
+utils.plotPowerGeneration(Solar_Generation_Forecast0,labels_solar_dwd,filename="forecast_origin.png",x_range0=720)
+utils.plotPowerGeneration(Solar_Generation_Forecast1,labels_solar_dwd,filename="forecast_revised.png",x_range0=720)

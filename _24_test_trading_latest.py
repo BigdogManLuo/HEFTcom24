@@ -10,8 +10,8 @@ IntegratedDataset=pd.read_csv("data/dataset/latest/IntegratedDataset.csv")
 
 
 #Energy Data
-energy_data1=pd.read_csv("data/Energy_Data_20200920_20240118.csv")
-energy_data2=pd.read_csv("data/Energy_Data_20240119_20240519.csv")
+energy_data1=pd.read_csv("data/raw/Energy_Data_20200920_20240118.csv")
+energy_data2=pd.read_csv("data/raw/Energy_Data_20240119_20240519.csv")
 energy_data=pd.concat([energy_data1,energy_data2],axis=0)
 energy_data["dtm"] = pd.to_datetime(energy_data["dtm"])
 energy_data["Wind_MWh_credit"] = 0.5*energy_data["Wind_MW"] - energy_data["boa_MWh"]
@@ -73,8 +73,8 @@ for day in tqdm(pd.date_range(modelling_table["dtm"].min()-pd.Timedelta(days=64)
     target_df=modelling_table.loc[(modelling_table["dtm"]>=target_day) & (modelling_table["dtm"]<=target_day+pd.Timedelta(days=1)-pd.Timedelta(minutes=30))]
     modelling_table.loc[(modelling_table["dtm"] >= target_day) & (modelling_table["dtm"] <= target_day + pd.Timedelta(days=1) - pd.Timedelta(minutes=30)), "pd_pred"] = pd_in_hours[target_df["hours"].values].values
     
-modelling_table["q50pd"]=modelling_table["q50"]+7.14*modelling_table["pd_pred"]
-modelling_table["msepd"]=modelling_table["mse"]+7.14*modelling_table["pd_pred"]
+modelling_table["q50pd"]=modelling_table["q50"]+7.1*modelling_table["pd_pred"]
+modelling_table["msepd"]=modelling_table["mse"]+7.1*modelling_table["pd_pred"]
 modelling_table.loc[modelling_table["q50pd"]<0,"q50pd"]=0
 modelling_table.loc[modelling_table["q50pd"]>1800,"q50pd"]=1800
 modelling_table.loc[modelling_table["msepd"]<0,"msepd"]=0
@@ -112,10 +112,6 @@ print(f"Strategy 1: {R1.sum()}, RMSE: {RMSE_1}, MAE: {MAE_1}")
 print(f"Strategy 2: {R2.sum()}, RMSE: {RMSE_2}, MAE: {MAE_2}","Improvement: ",np.round(100*((R2.sum()-R1.sum())/R1.sum()),2))
 print(f"Strategy 3: {R3.sum()}, RMSE: {RMSE_3}, MAE: {MAE_3}", "Improvement: ",np.round(100*((R3.sum()-R1.sum())/R1.sum()),2))
 print(f"Strategy 4: {R4.sum()}, RMSE: {RMSE_4}, MAE: {MAE_4}", "Improvement: ",np.round(100*((R4.sum()-R1.sum())/R1.sum()),2))
-
-
-#Save R4
-R4.to_csv("data/TradingRevenue.csv",index=False)
 
 
 
