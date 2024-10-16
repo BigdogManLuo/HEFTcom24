@@ -97,4 +97,4 @@ python -m solar_comp.py
 
 ## Acknowledgements
 
-We would like to thank the organizers of HEFTCom2024 for providing the data and platform. We also thank Professor [Jethro Browell](https://github.com/jbrowell) and [Linwei Sang](https://github.com/sanglinwei) for their helpful suggestions on the research paper. 
+We would like to thank the organizers of HEFTCom2024 for providing the data and platform. We also thank Professor [Jethro Browell (University of Glasgow)](https://github.com/jbrowell) and [Linwei Sang (Tsinghua University)](https://github.com/sanglinwei) for their helpful suggestions on the research paper. 
