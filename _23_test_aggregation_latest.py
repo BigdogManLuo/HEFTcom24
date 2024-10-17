@@ -43,5 +43,5 @@ mpd_total1=utils.meanPinballLoss(labels_wind_dwd+labels_solar_dwd,Total_generati
 print(f"Without Aggregation:{mpd_total0}\nWith Aggregation:{mpd_total1}")
 
 #%% Plotting
-utils.plotPowerGeneration(Total_generation_forecast0,labels_solar_dwd+labels_wind_dwd,filename="total_gen_quantile_add.png",x_range0=2400)
-utils.plotPowerGeneration(Total_generation_forecast1,labels_solar_dwd+labels_wind_dwd,filename="total_gen_aggregation.png",x_range0=2400)
+utils.plotPowerGeneration(Total_generation_forecast0,labels_solar_dwd+labels_wind_dwd,filename="total_gen_quantile_add.png",x_range0=2400,ptype="total")
+utils.plotPowerGeneration(Total_generation_forecast1,labels_solar_dwd+labels_wind_dwd,filename="total_gen_aggregation.png",x_range0=2400,ptype="total")

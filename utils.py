@@ -140,7 +140,7 @@ def generateRollingPostProcessCoffs(track="Forecasting"):
             pickle.dump(Models_revised,f)
 
 
-def plotPowerGeneration(Generation_forecast,labels,filename, x_range0,step_size=600):
+def plotPowerGeneration(Generation_forecast,labels,filename, x_range0,step_size=600,ptype="solar"):
     
     x_range1=x_range0+step_size
     x_range=np.arange(x_range0,x_range1)
@@ -156,8 +156,11 @@ def plotPowerGeneration(Generation_forecast,labels,filename, x_range0,step_size=
 
     plt.legend([l1[0],l2,l3],["True","q10-q30, q70-q90","q30-q70"],frameon=False,bbox_to_anchor=(1, 1.15),ncol=3)
 
-    plt.xticks(np.arange(x_range0,x_range1+60,step=60),labels=np.arange(0,(x_range1-x_range0)/2+30,step=30))
-
+    plt.xticks(np.arange(x_range0,x_range1+60,step=60),labels=np.arange(0,(x_range1-x_range0)/2+30,step=30).astype(int))
+    
+    if ptype=="total":
+        plt.yticks(np.arange(0,1400,step=200))
+    
     plt.gca().spines['bottom'].set_linewidth(2)
     plt.gca().spines['left'].set_linewidth(2)
     plt.gca().spines['top'].set_linewidth(2)
@@ -165,9 +168,12 @@ def plotPowerGeneration(Generation_forecast,labels,filename, x_range0,step_size=
     plt.tick_params(width=2)
 
     plt.xlabel("Time(h)")
-    plt.ylabel("Solar Power(MWh)")
+    if ptype=="solar":
+        plt.ylabel("Solar Power(MWh)")
+    elif ptype=="total":
+        plt.ylabel("Total Power(MWh)")
 
-    plt.savefig(f"figs/{filename}",dpi=600)
+    plt.savefig(f"figs/{filename}",dpi=660)
 
 #==========================Forecasting=================================
 def quantile_sort(forecast):
