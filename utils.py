@@ -9,7 +9,7 @@ from sklearn.linear_model import QuantileRegressor
 from sklearn.utils.fixes import parse_version, sp_version
 from sklearn.linear_model import Lasso
 import matplotlib.pyplot as plt
-
+import scienceplots
 
 def loadFeaturesandLabels(pathtype,source):
 
@@ -144,10 +144,11 @@ def plotPowerGeneration(Generation_forecast,labels,filename, x_range0,step_size=
     
     x_range1=x_range0+step_size
     x_range=np.arange(x_range0,x_range1)
+    plt.style.use('science')
     plt.figure(figsize=(12,7))
     plt.rcParams['font.family'] = ['Times New Roman']
     plt.rcParams.update({'font.size': 25})
-    l1=plt.plot(x_range,labels[x_range],label="true",linewidth=2)
+    l1=plt.plot(x_range,labels[x_range],label="true",linewidth=2,color="b")
     colors=["#cf6a87","#f8a5c2"]
     l2=plt.fill_between(x_range,Generation_forecast["q10"][x_range],Generation_forecast["q30"][x_range],color=colors[0],alpha=0.5)
     l3=plt.fill_between(x_range,Generation_forecast["q30"][x_range],Generation_forecast["q50"][x_range],color=colors[1],alpha=0.5)

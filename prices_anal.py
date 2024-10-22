@@ -1,6 +1,7 @@
 import pandas as pd 
 import numpy as np
 import matplotlib.pyplot as plt
+import scienceplots
 
 # Load the data
 energy_data = pd.read_csv('data/raw/Energy_Data_20200920_20240118.csv')
@@ -36,6 +37,7 @@ std_value3=energy_data3.groupby('hour')['Price_Spread'].agg(['std'])
 std_value4=energy_data4.groupby('hour')['Price_Spread'].agg(['std'])
 
 #Plot
+plt.style.use(['science','ieee'])
 plt.figure(figsize=(12,12))
 plt.rcParams['font.family'] = 'Times New Roman'
 plt.rcParams.update({'font.size': 21})
