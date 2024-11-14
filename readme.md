@@ -3,7 +3,14 @@
 ![Static Badge](https://img.shields.io/badge/language-python-%20)
 ![Static Badge](https://img.shields.io/badge/license-MIT-a?color=blue)
 
-This repository contains the code used in the paper **"A Hybrid Strategies for HEFTCom2024 Probabilistic Energy Forecasting and Trading Tasks based on Ensemble Learning Methods"**, which details the solutions developed by Team GEB for the Hybrid Energy Forecasting and Trading Competition 2024 (HEFTCom2024). In HEFTCom2024 final leaderboard, we ranked **1st** among student teams. We also ranked **3rd** in Trading Track and **4th** in Forecasting Track. Our solutions provide accurate probabilistic forecasts for a hybrid power plant and achieving significant trading revenue.
+This repository contains the code used in the paper **"A Hybrid Strategies for HEFTCom2024 Probabilistic Energy Forecasting and Trading Tasks based on Ensemble Learning Methods"**, which details the solutions developed by Team GEB for the [Hybrid Energy Forecasting and Trading Competition 2024 (HEFTCom2024)](https://ieee-dataport.org/competitions/hybrid-energy-forecasting-and-trading-competition). In the final leaderboard, we ranked **1st** among student teams. We also ranked **3rd** in Trading Track and **4th** in Forecasting Track. Our solutions provide accurate probabilistic forecasts for a hybrid power plant and achieving significant trading revenue.
+
+### Final Rank
+
+| | Trading Track | Forecasting Track | Combined Track|
+|---------- | -------- | -------- |-------- |
+| Student Teams | 1st |1st|1st
+| All| 3rd| 4th | 4th
 
 ## Overview
 
