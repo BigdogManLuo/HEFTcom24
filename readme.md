@@ -12,6 +12,8 @@ This repository contains the code used in the paper **"A Hybrid Strategies for H
 | Student Teams | 1st           | 1st               | 1st            |
 | All           | 3rd           | 4th               | 4th            |
 
+This code is primarily intended to reproduce all the experiments in our paper. For the engineering code used for online testing, please refer to the ["online"](https://github.com/BigdogManLuo/HEFTcom24/tree/online) branch.
+
 ## Overview
 
 The codebase is structured to reproduce the key methods described in the paper:
