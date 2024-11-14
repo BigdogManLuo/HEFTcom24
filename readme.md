@@ -7,16 +7,16 @@ This repository contains the code used in the paper **"A Hybrid Strategies for H
 
 ### Final Rank
 
-| | Trading Track | Forecasting Track | Combined Track|
-|---------- | -------- | -------- |-------- |
-| Student Teams | 1st |1st|1st
-| All| 3rd| 4th | 4th
+|               | Trading Track | Forecasting Track | Combined Track |
+| ------------- | ------------- | ----------------- | -------------- |
+| Student Teams | 1st           | 1st               | 1st            |
+| All           | 3rd           | 4th               | 4th            |
 
 ## Overview
 
 The codebase is structured to reproduce the key methods described in the paper:
 
-1. **Stacking Models** trained on various Numerical Weather Predictions (NWPs) for wind power forecasting. 
+1. **Stacking Models** trained on various Numerical Weather Predictions (NWPs) for wind power forecasting.
 2. **Online Post-Processing** model to address distribution shifts caused by increased solar capacity in the online test set.
 3. **Probabilistic Aggregation** technique to provide accurate quantile forecasts of total hybrid generation.
 4. **Stochastic Trading Strategy** to maximize expected trading revenue considering uncertainties in electricity prices.
@@ -25,83 +25,95 @@ The codebase is structured to reproduce the key methods described in the paper:
 ## Usage
 
 ### Data Preparation
+
 The data used in this project is available on [IEEE Dataport](https://ieee-dataport.org/competitions/hybrid-energy-forecasting-and-trading-competition). Download the dataset and place it in the `./data/raw` directory.
 
 ### Data Preprocessing
+
 To preprocess the dataset, run the following command:
+
 ```
-python -m _01_dataPreProcess.py
+python _01_dataPreProcess.py
 ```
 
 To generate dataset for case1 and case2, run the following command:
+
 ```
-python -m _02_generateDataset.py
-python -m _03_generateLatestDataset.py
+python _02_generateDataset.py
+python _03_generateLatestDataset.py
 ```
 
 ### Model Training
 
 Train LightGBM models for dense quantile regression:
+
 ```
-python -m _11_train.py
+python _11_train.py
 ```
 
 Train the stacked multi-source NWPs sister forecasting model for wind power forecasting:
-```
-python -m _12_stacking_wind.py
-```
 
-
+```
+python _12_stacking_wind.py
+```
 
 ### Hyperparameter Tuning
+
 run the following command:
+
 ```
-python -m params_search.py
+python params_search.py
 ```
 
 ### Case Study
 
 Validate the effectiveness of the stacked multi-source NWPs sister forecasting model:
+
 ```
-python -m _21_test_wind_ensemble_history.py
-python -m _21_test_wind_ensemble_latest.py
+python _21_test_wind_ensemble_history.py
+python _21_test_wind_ensemble_latest.py
 ```
 
 Validate the effectiveness of the solar online post-processing model:
+
 ```
-python -m _22_test_solar_online.py
+python _22_test_solar_online.py
 ```
 
 Validate the effectiveness of the probabilistic aggregation technique:
+
 ```
-python -m _23_test_aggregation_history.py
-python -m _23_test_aggregation_latest.py
+python _23_test_aggregation_history.py
+python _23_test_aggregation_latest.py
 ```
 
 Validate the effectiveness of the stochastic trading strategy:
+
 ```
-python -m _24_test_trading_history.py
-python -m _24_test_trading_latest.py
+python _24_test_trading_history.py
+python _24_test_trading_latest.py
 ```
 
 Validate the effectiveness of the value-oriented price spread forecasting:
+
 ```
-python -m _31_vof_pre_train_history.py
-python -m _32_vof_history.py
-python -m _33_vof_pre_train_latest.py
-python -m _34_vof_latest.py
+python _31_vof_pre_train_history.py
+python _32_vof_history.py
+python _33_vof_pre_train_latest.py
+python _34_vof_latest.py
 ```
 
 ### Others
-The following files are used to plot the figures involved in the paper:
-```
-python -m corelation.py
-python -m plot_decision_loss.py
-python -m prices_anal.py
-python -m solar_comp.py
-```
 
+The following files are used to plot the figures involved in the paper:
+
+```
+python corelation.py
+python plot_decision_loss.py
+python prices_anal.py
+python solar_comp.py
+```
 
 ## Acknowledgements
 
-We would like to thank the organizers of HEFTCom2024 for providing the data and platform. We also thank Professor [Jethro Browell](https://github.com/jbrowell) and [Linwei Sang](https://github.com/sanglinwei) for their helpful suggestions on the research paper. 
+We would like to thank the organizers of HEFTCom2024 for providing the data and platform. We also thank Professor [Jethro Browell](https://github.com/jbrowell) and [Linwei Sang](https://github.com/sanglinwei) for their helpful suggestions on the research paper.

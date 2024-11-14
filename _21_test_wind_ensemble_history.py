@@ -17,6 +17,7 @@ Wind_Generation_Forecast=utils.forecast_wind(**params)
 
 mpd_wind_dwd=utils.meanPinballLoss(labels_wind_dwd,Wind_Generation_Forecast)
 
+
 #gfs only
 params={
     "wind_features":features_wind_gfs,
@@ -26,6 +27,7 @@ params={
 }
 Wind_Generation_Forecast=utils.forecast_wind(**params)
 mpd_wind_gfs=utils.meanPinballLoss(labels_wind_gfs,Wind_Generation_Forecast)
+
 
 #dwd+gfs
 params={
