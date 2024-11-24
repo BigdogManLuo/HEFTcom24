@@ -79,13 +79,19 @@ print("Mutual Information:",mi)
 
 #%% Visualize the residuals
 
-data = pd.DataFrame({'Wind Power': residuals_wind, 'PV Power': residuals_solar})
+plt.rcParams['font.family'] = 'Times New Roman'
+
+data = pd.DataFrame({'Residuals Wind': residuals_wind, 'Residuals Solar': residuals_solar})
 
 sns.set(style='whitegrid')
-g = sns.jointplot(x='Wind Power', y='PV Power', data=data, kind='hist', bins=25, marginal_kws=dict(bins=25, fill=True, color='skyblue', alpha=0.8,edgecolor='black'),cmap='Blues')
-g.set_axis_labels('Wind Power (MWh)', 'Solar Power (MWh)', fontsize=16,family='Times New Roman')
+g = sns.jointplot(x='Residuals Wind', y='Residuals Solar', data=data, kind='hist', bins=25, marginal_kws=dict(bins=25, fill=True, color='skyblue', alpha=0.8,edgecolor='black'),cmap='Blues')
+g.set_axis_labels('Residuals of Wind Power (MWh)', 'Residuals of Solar Power (MWh)', fontsize=16,family='Times New Roman')
 plt.xticks(fontsize=16,family='Times New Roman')
-plt.yticks(fontsize=16,family='Times New Roman')
+
+max_value=400
+plt.xlim(-max_value,max_value)
+plt.ylim(-max_value,max_value)
+
 plt.tight_layout()
 plt.savefig('figs/correlation.png',dpi=800)
 
