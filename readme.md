@@ -71,7 +71,7 @@ python _14_solar_revised_bidding.py
 
 ```
 python _21_test_wind_ensemble_history.py
-python _22_test_trading_history.py.py
+python _22_test_trading_history.py
 ```
 
 ### Online Submission
