@@ -29,7 +29,6 @@ def generateDataset():
     dwd_solar_features_new = dwd_solar_features_new[dwd_solar_features_new["ref_datetime"] < "2024-01-08 00:00:00"]
     dwd_solar_features=pd.concat([dwd_solar_features_old,dwd_solar_features_new,dwd_solar_features_latest],axis=0).reset_index(drop=True)
 
-
     # Load GFS Wind Data
     gfs_Hornsea1_old = xr.open_dataset("data/raw/ncep_gfs_hornsea_1_20200920_20231027.nc")
     gfs_Hornsea1_new = xr.open_dataset("data/raw/ncep_gfs_hornsea_1_20231027_20240108.nc")
