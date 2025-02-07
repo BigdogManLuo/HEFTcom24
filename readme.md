@@ -5,7 +5,7 @@
 
 This repository contains the code used in the paper **"A Hybrid Strategies for HEFTCom2024 Probabilistic Energy Forecasting and Trading Tasks based on Ensemble Learning Methods"**, which details the solutions developed by Team GEB for the [Hybrid Energy Forecasting and Trading Competition 2024 (HEFTCom2024)](https://ieee-dataport.org/competitions/hybrid-energy-forecasting-and-trading-competition). Our solutions provide accurate probabilistic forecasts for a hybrid power plant and achieving significant trading revenue.
 
-### Final Rank
+## Final Rank
 
 In the final leaderboard of HEFTCom2024, the team GEB achieved:
 
@@ -30,13 +30,13 @@ The codebase is structured to reproduce the key methods described in the paper:
 4. **Stochastic Trading Strategy** to maximize expected trading revenue considering uncertainties in electricity prices.
 5. **Value-Oriented Price Spread Forecasting** to further enhance the trading revenue.
 
-### Data Preparation
+## Data Preparation
 
 1. Download competition data from [IEEE Dataport](https://ieee-dataport.org/competitions/hybrid-energy-forecasting-and-trading-competition).
 
 2. Place raw data in `data/raw/` directory
 
-### Data Preprocessing Pipeline
+## Data Preprocessing Pipeline
 
 ```bash
 # Stage 1: Data normalization and feature engineering
@@ -47,7 +47,7 @@ python _02_generateDataset.py
 python _03_generateLatestDataset.py
 ```
 
-### Model Development
+## Model Development
 
 ```bash
 #Train LightGBM models for dense quantile regression
@@ -57,7 +57,7 @@ python _11_train.py
 python _12_stacking_wind.py
 ```
 
-### Hyperparameter Tuning
+## Hyperparameter Tuning
 
 ```
 python params_search.py
@@ -73,7 +73,7 @@ python params_search.py
 | Trading Strategy                        | `_24_test_trading_*.py`              | Trading Revenue         |
 | Value-oriented Price Spread Forecasting | `_31_mse_oriented_*`,`_32_vof_\*.py` | Trading Revenue         |
 
-### Others
+## Analysis and Visualization
 
 The following files are used to plot the figures involved in the paper:
 
