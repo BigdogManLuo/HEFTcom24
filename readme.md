@@ -65,13 +65,13 @@ python params_search.py
 
 ## Experimental Validation
 
-| Component                               | Validation Scripts                   | Metrics                 |
-| --------------------------------------- | ------------------------------------ | ----------------------- |
-| Wind Forecasting Ensemble               | `_21_test_wind_ensemble_*.py`        | CRPS, Mean Pinball Loss |
-| Solar Post-Processing                   | `_22_test_solar_online.py`           | Mean Pinball Loss       |
-| Probabilistic Aggregation               | `_23_test_aggregation_*.py`          | Mean Pinball Loss       |
-| Trading Strategy                        | `_24_test_trading_*.py`              | Trading Revenue         |
-| Value-oriented Price Spread Forecasting | `_31_mse_oriented_*`,`_32_vof_\*.py` | Trading Revenue         |
+| Component                               | Validation Scripts                   | Metrics           |
+| --------------------------------------- | ------------------------------------ | ----------------- |
+| Wind Forecasting Ensemble               | `_21_test_wind_ensemble_*.py`        | Mean Pinball Loss |
+| Solar Post-Processing                   | `_22_test_solar_online.py`           | Mean Pinball Loss |
+| Probabilistic Aggregation               | `_23_test_aggregation_*.py`          | Mean Pinball Loss |
+| Trading Strategy                        | `_24_test_trading_*.py`              | Trading Revenue   |
+| Value-oriented Price Spread Forecasting | `_31_mse_oriented_*`,`_32_vof_\*.py` | Trading Revenue   |
 
 ## Analysis and Visualization
 
