@@ -71,7 +71,7 @@ Loss_e2e_case2 = 0.07 * power_error_case2**2 + 3.57 * pd_error_e2e_case2**2 + po
 Loss_acc_oriented_case2 = 0.07 * power_error_case2**2 + 3.57 * pd_error_acc_oriented_case2**2 + power_error_case2 * pd_error_acc_oriented_case2
 Loss_ST_case2 = 0.07 * power_error_case2**2 + 3.57 * pd_error_ST_case2**2 + power_error_case2 * pd_error_ST_case2
 Loss_q50_case2 = 0.07 * power_error_case2**2 + 3.57 * pd_error_q50_case2**2 + power_error_case2 * pd_error_q50_case2
-
+#%%
 plt.style.use(['science', 'ieee'])
 plt.figure(figsize=(24, 12))
 plt.rcParams['font.family'] = 'Times New Roman'
@@ -185,7 +185,7 @@ plt.figure(figsize=(8, 6))
 mask = (Loss_e2e_case1 < Loss_ST_case1) & (abs(pd_error_ST_case1)<abs(pd_error_e2e_case1))
 plt.rcParams['font.family'] = 'Times New Roman'
 plt.rcParams.update({'font.size': 18})
-plt.scatter(power_error_case1[~mask], -pd_error_e2e_case1[~mask], s=1, alpha=0.5, color='b', label='Normal')
+plt.scatter(power_error_case1[~mask], pd_error_e2e_case1[~mask], s=1, alpha=0.5, color='b', label='Normal')
 plt.scatter(power_error_case1[mask], pd_error_e2e_case1[mask], s=2, alpha=1, color='#e84393', label='SoDR')
 plt.xlabel('Power Error (MWh)')
 plt.ylabel('Price Error (£/MWh)')
