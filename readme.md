@@ -91,6 +91,11 @@ The following files are used to plot the figures involved in the paper:
 
 For technical inquiries: Chuanqing Pu (sashabanks@sjtu.edu.cn)
 
+## Reference
+
+Please refer to
+[A Hybrid Strategy for Aggregated Probabilistic Forecasting and Energy Trading in HEFTCom2024](https://arxiv.org/abs/2505.10367) for more detail.
+
 ## Acknowledgements
 
 We would like to thank the organizers of HEFTCom2024 for providing the data and platform. We also thank Professor [Jethro Browell](https://github.com/jbrowell) and [Linwei Sang](https://github.com/sanglinwei) for their helpful suggestions on the research paper.
