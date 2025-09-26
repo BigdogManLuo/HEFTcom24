@@ -64,8 +64,6 @@ for i in range(4):
     plt.gca().spines['bottom'].set_linewidth(2)
     plt.gca().spines['left'].set_linewidth(2)
 
-    plt.legend(['Mean'],loc='upper right')
-
     plt.gca().tick_params(width=2)
     plt.gca().tick_params(axis='x',direction='in',length=6,width=2)
     plt.gca().tick_params(axis='y',direction='in',length=6,width=2)

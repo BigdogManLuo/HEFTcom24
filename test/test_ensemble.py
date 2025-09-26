@@ -11,7 +11,6 @@ IntegratedDataset=pd.read_csv("../data/dataset/latest/IntegratedDataset.csv")
 def testEnsemble(ftype,pathtype):
     features_wind_dwd,labels_wind_dwd,features_solar_dwd,labels_solar_dwd=utils.loadFeaturesandLabels(pathtype=pathtype,source="dwd")
     features_wind_gfs,labels_wind_gfs,features_solar_gfs,labels_solar_gfs=utils.loadFeaturesandLabels(pathtype=pathtype,source="gfs")
-    #features_wind_allin1,labels_wind_allin1,features_solar_allin1,labels_solar_allin1=utils.loadFeaturesandLabels(pathtype=pathtype,source="allin1")
 
     if ftype=="wind":
         if pathtype=="test":
@@ -30,24 +29,6 @@ def testEnsemble(ftype,pathtype):
                 "source":"gfs"
             }
 
-            '''
-            params_allin1={
-                "wind_features": features_wind_allin1,
-                "full":False,
-                "WLimit":False,
-                "source":"allin1"
-            }
-            '''
-
-            '''
-            params_average_ensemble={
-                "wind_features_dwd":features_wind_dwd,
-                "wind_features_gfs":features_wind_gfs,
-                "full":False,
-                "WLimit":False,
-                "ensemble_method":"average"
-            }
-            '''
             params_stacking={
                 "wind_features_dwd":features_wind_dwd,
                 "wind_features_gfs":features_wind_gfs,
@@ -74,25 +55,7 @@ def testEnsemble(ftype,pathtype):
                 "availableCapacities":IntegratedDataset["availableCapacity"].values,
                 "source":"gfs"
             }
-            '''
-            params_allin1={
-                "wind_features": features_wind_allin1,
-                "full":True,
-                "WLimit":True,
-                "availableCapacities":IntegratedDataset["availableCapacity"].values,
-                "source":"allin1"
-            }
-            '''
-            '''
-            params_average_ensemble={
-                "wind_features_dwd":features_wind_dwd,
-                "wind_features_gfs":features_wind_gfs,
-                "full":True,
-                "WLimit":True,
-                "availableCapacities":IntegratedDataset["availableCapacity"].values,
-                "ensemble_method":"average"
-            }
-            '''
+
             params_stacking={
                 "wind_features_dwd":features_wind_dwd,
                 "wind_features_gfs":features_wind_gfs,
@@ -104,7 +67,6 @@ def testEnsemble(ftype,pathtype):
 
         Generation_Forecast_dwd=utils_forecasting.forecast_wind(**params_dwd)
         Generation_Forecast_gfs=utils_forecasting.forecast_wind(**params_gfs)
-        #Generation_Forecast_allin1=utils_forecasting.forecast_wind(**params_allin1)
         Generation_Forecast_stacking=utils_forecasting.forecast_wind_ensemble(**params_stacking)
 
     if ftype=="solar":
@@ -127,25 +89,7 @@ def testEnsemble(ftype,pathtype):
                 "rolling_test":False,
                 "source":"gfs"
             }
-            '''
-            params_allin1={
-                "solar_features": features_solar_allin1,
-                "hours":features_solar_allin1[:,-1],
-                "full":False,
-                "SolarRevise":False,
-                "source":"allin1"
-            }
-            '''
-            '''
-            params_average_ensemble={
-                "solar_features_dwd":features_solar_dwd,
-                "solar_features_gfs":features_solar_gfs,
-                "hours":features_solar_dwd[:,-1],
-                "full":False,
-                "SolarRevise":False,
-                "ensemble_method":"average"
-            }
-            '''
+
             params_stacking={
                 "solar_features_dwd":features_solar_dwd,
                 "solar_features_gfs":features_solar_gfs,
@@ -175,27 +119,7 @@ def testEnsemble(ftype,pathtype):
                 "rolling_test":True,
                 "source":"gfs"
             }
-            '''
-            params_allin1={
-                "solar_features": features_solar_allin1,
-                "hours":features_solar_allin1[:,-1],
-                "full":True,
-                "SolarRevise":True,
-                "rolling_test":True,
-                "source":"allin1"
-            }
-            '''
-            
-            '''
-            params_average_ensemble={
-                "solar_features_dwd":features_solar_dwd,
-                "solar_features_gfs":features_solar_gfs,
-                "hours":features_solar_dwd[:,-1],
-                "full":True,
-                "SolarRevise":True,
-                "ensemble_method":"average"
-            }
-            '''
+
             params_stacking={
                 "solar_features_dwd":features_solar_dwd,
                 "solar_features_gfs":features_solar_gfs,
@@ -206,27 +130,22 @@ def testEnsemble(ftype,pathtype):
 
         Generation_Forecast_dwd=utils_forecasting.forecast_solar(**params_dwd)
         Generation_Forecast_gfs=utils_forecasting.forecast_solar(**params_gfs)
-        #Generation_Forecast_allin1=utils_forecasting.forecast_solar(**params_allin1)
         Generation_Forecast_stacking=utils_forecasting.forecast_solar_ensemble(**params_stacking)
 
     mpd_dwd=utils.meanPinballLoss(labels,Generation_Forecast_dwd)
     mpd_gfs=utils.meanPinballLoss(labels,Generation_Forecast_gfs)
-    #mpd_allin1=utils.meanPinballLoss(labels,Generation_Forecast_allin1)
     mpd_stacking=utils.meanPinballLoss(labels,Generation_Forecast_stacking)
 
     mCRPS_dwd=utils.getMCRPS(y_true=labels,y_pred=Generation_Forecast_dwd)
     mCRPS_gfs=utils.getMCRPS(y_true=labels,y_pred=Generation_Forecast_gfs)
-    # mCRPS_allin1=utils.getMCRPS(y_true=labels,y_pred=Generation_Forecast_allin1)
     mCRPS_stacking=utils.getMCRPS(y_true=labels,y_pred=Generation_Forecast_stacking)
 
     mWS_dwd=utils.getWinklerScore(y_true=labels,y_pred=Generation_Forecast_dwd)
     mWS_gfs=utils.getWinklerScore(y_true=labels,y_pred=Generation_Forecast_gfs)
-    # mWS_allin1=utils.getWinklerScore(y_true=labels,y_pred=Generation_Forecast_allin1)
     mWS_stacking=utils.getWinklerScore(y_true=labels,y_pred=Generation_Forecast_stacking)
 
     CP_dwd=utils.getCoverageProbability(y_true=labels,y_pred=Generation_Forecast_dwd)
     CP_gfs=utils.getCoverageProbability(y_true=labels,y_pred=Generation_Forecast_gfs)
-    # CP_allin1=utils.getCoverageProbability(y_true=labels,y_pred=Generation_Forecast_allin1)
     CP_stacking=utils.getCoverageProbability(y_true=labels,y_pred=Generation_Forecast_stacking)
 
     print("==================================")

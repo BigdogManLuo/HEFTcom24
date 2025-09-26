@@ -13,7 +13,6 @@ import utils
 import utils_data
 
 
-#加载数据集
 IntegratedDataset_train=pd.read_csv("../data/dataset/train/IntegratedDataset.csv")
 
 
@@ -21,13 +20,11 @@ for source in ["dwd","gfs"]:
 
     columns_wind_features,columns_solar_features=utils_data.getFeaturesName(source)
     
-    #提取特征和标签
     features=IntegratedDataset_train[columns_wind_features+columns_solar_features]
     labels=IntegratedDataset_train["total_generation_MWh"]
     
     print("Training model for",source)
 
-    #训练模型
     for quantile in tqdm(range(10,100,10)):
         params={
             'objective':'quantile',

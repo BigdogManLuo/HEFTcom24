@@ -18,18 +18,16 @@ from statsmodels.tsa.stattools import kpss
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from pmdarima import auto_arima
-from statsmodels.tsa.api import VARMAX
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 
-# 自动选择最优阶数 (BIC准则倾向简化模型)
 def  autoParams(ts):
     arma_model = auto_arima(
         ts,
         start_p=0, max_p=3,
         start_q=0, max_q=3,
         seasonal=False,
-        information_criterion='bic',  # 比AIC更严格
+        information_criterion='bic',  
         stepwise=True,
         suppress_warnings=True
     )
@@ -38,18 +36,6 @@ def  autoParams(ts):
     return optimal_order
 
 
-def check_time_regularity(df, time_col='dtm'):
-
-    time_series = df[time_col].sort_values().reset_index(drop=True)
-    
-    deltas = time_series.diff().dropna()
-    
-    unique_deltas = deltas.unique()
-    
-    if len(unique_deltas) == 1:
-        return True, unique_deltas[0]
-    else:
-        return False, None
 
 def testStationary(ts):
     
@@ -67,77 +53,7 @@ def testStationary(ts):
     plt.show()
     
     kpss_stat, kpss_p, _, _ = kpss(ts)
-    print(f"KPSS p-value: {kpss_p}")  # >0.05则确认平稳
-
-
-def plot_academic_decomposition(df, figsize=(12, 9), 
-                                save_path=None, dpi=660):
-    
-    df=df[df["Price_diff"]>-400]
-
-    # 设置学术图表样式
-    plt.style.use('seaborn-whitegrid')
-    plt.rcParams.update({
-        'font.family': 'Times New Roman',
-        'font.size': 25,  # 调大字体大小
-        'axes.titlesize': 18,
-        'axes.labelsize': 16,
-        'xtick.labelsize': 14,
-        'ytick.labelsize': 14,
-        'axes.linewidth': 2.5,  # 加粗坐标轴
-        'xtick.major.width': 2.5,  # 加粗x轴刻度
-        'ytick.major.width': 2.5,  # 加粗y轴刻度
-        'savefig.dpi': dpi,
-        'figure.autolayout': True
-    })
-
-    # 创建画布和子图
-    fig, axes = plt.subplots(3, 1, figsize=figsize, sharex=True)
-    
-    try:
-        # STL分解
-        stl = STL(df.set_index('dtm')['Price_diff'], period=48, robust=True).fit()
-    except Exception as e:
-        raise ValueError(f"STL分解失败: {str(e)}") from e
-
-    # 原始序列
-    axes[0].plot(df['dtm'], df['Price_diff'], 
-                color='black',alpha=0.8, linewidth=1.5, label='Observed')
-    axes[0].set_title('(a) Original Time Series', y=0.85, x=0.02, ha='left', fontweight='bold')
-    axes[0].grid(True, linestyle='--', alpha=0.6)
-    axes[0].set_ylabel('Value', labelpad=10)
-    axes[0].axhline(y=0, color='r', linestyle='--', linewidth=1)
-
-
-    # 趋势项
-    axes[1].plot(df['dtm'], stl.trend, 
-                color='black',alpha=0.8, linewidth=2, label='Trend')
-    axes[1].set_title('(b) Trend Component', y=0.85, x=0.02, ha='left', fontweight='bold')
-    axes[1].grid(True, linestyle='--', alpha=0.6)
-    axes[1].set_ylabel('Trend', labelpad=10)
-
-    # 季节项
-    axes[2].plot(df['dtm'], stl.seasonal, 
-                color='black',alpha=0.8, linewidth=1, label='Seasonal')
-    axes[2].set_title('(c) Seasonal Component', y=0.85, x=0.02, ha='left', fontweight='bold')
-    axes[2].grid(True, linestyle='--', alpha=0.6)
-    axes[2].set_ylabel('Seasonality', labelpad=10)
-    axes[2].set_xlabel('Date', labelpad=10)
-
-    # 日期格式优化
-    date_fmt = mdates.DateFormatter('%Y-%m')
-    axes[2].xaxis.set_major_formatter(date_fmt)
-    plt.setp(axes[2].xaxis.get_majorticklabels(), rotation=45, ha='right')
-    
-    # y轴刻度优化
-    for ax in axes:
-        ax.yaxis.set_major_locator(MaxNLocator(prune='both', nbins=6))
-
-    # 保存图表
-    if save_path:
-        plt.savefig(save_path, bbox_inches='tight', dpi=dpi)
-    
-    plt.show()
+    print(f"KPSS p-value: {kpss_p}")  
 
 
 def testTrading(pathtype):
@@ -172,9 +88,6 @@ def testTrading(pathtype):
     # Stationary Test 
     testStationary(modelling_table["Price_diff"])
     
-    #Visualization
-    plot_academic_decomposition(modelling_table,save_path=f"../figs/price_spread_original_{pathtype}")
-
     if pathtype=="test":
 
         params_q50={
@@ -231,9 +144,8 @@ def testTrading(pathtype):
 
     # Benchmarks
     modelling_table["pd_pred"]=np.array([0]*len(modelling_table))
-    modelling_table["pd_pred_persistance"]=np.array([0]*len(modelling_table))  # Persistance model
     modelling_table["pd_pred_persistance_seasonal"]=np.array([0]*len(modelling_table))  # Seasonal Persistance model
-    modelling_table["pd_pred_persistance_average"]=np.array([0]*len(modelling_table))  # Average Persistance model
+    modelling_table["pd_pred_naive"]=np.array([0]*len(modelling_table))  # Average Persistance model
     modelling_table["pd_pred_ETS"]=np.array([0]*len(modelling_table))  # ETS model
     modelling_table["pd_pred_arma"]=np.array([0]*len(modelling_table)) # ARIMA model
     modelling_table["pd_pred_ar"]=np.array([0]*len(modelling_table))  # AR model
@@ -286,11 +198,8 @@ def testTrading(pathtype):
         forecast = model_fit.forecast(steps=len(fureture_time_range[fureture_time_range==True]))
         modelling_table.loc[fureture_time_range, "pd_pred_ar"] = forecast*alpha
 
-        # Persistance Model 
-        modelling_table.loc[fureture_time_range, "pd_pred_persistance"] = past_df["Price_diff"].iloc[-1]
-        
-        # Average Persistance Model
-        modelling_table.loc[fureture_time_range, "pd_pred_persistance_average"] = past_df["Price_diff"].mean()
+        # Naive Forecasting
+        modelling_table.loc[fureture_time_range, "pd_pred_naive"] = past_df["Price_diff"].mean()
 
         # Seasonal Persistance Model
         modelling_table.loc[fureture_time_range, "pd_pred_persistance_seasonal"] = past_df["Price_diff"][-len(fureture_time_range[fureture_time_range==True]):].values*alpha
@@ -375,7 +284,7 @@ def showResults(modelling_table,methods_list,pathtype):
     np.save(f"../data/revenues/{caseNum}/pd_true.npy",modelling_table["Price_diff"].values)
     np.save(f"../data/revenues/{caseNum}/pd_pred.npy",modelling_table["pd_pred"].values)
 
-methods_list=["ETS","arma","ar","persistance","persistance_average","persistance_seasonal","sarimax"]
+methods_list=["ETS","arma","ar","naive","persistance_seasonal","sarimax"]
 
 for pathtype in ["test","latest"]:
 

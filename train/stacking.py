@@ -91,7 +91,8 @@ def stackSisterForecast(targetType):
         print(f"q{quantile}:",Models_meta[f"q{quantile}"].coef_)
 
 if __name__ == "__main__":
-    stackSisterForecast()
+    for targetType in ["wind","solar"]:
+        stackSisterForecast(targetType)
 
 
 

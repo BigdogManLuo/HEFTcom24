@@ -16,27 +16,19 @@ def testAggregation(pathtype):
     
     if pathtype=="test":
         IntegratedDataset_test.drop(columns=["ref_datetime","valid_datetime","Wind_MWh_credit","Solar_MWh_credit","Wind_MWh_credit_y","Solar_MWh_credit_y","total_generation_MWh_y","DA_Price_y","SS_Price_y","DA_Price","SS_Price","hours_y"],inplace=True)
-        featuresAllin1=IntegratedDataset_test.drop(columns=["total_generation_MWh"])
         labelsAllin1=IntegratedDataset_test["total_generation_MWh"]
         columns_wind_features_dwd,columns_solar_features_dwd=utils_data.getFeaturesName(source="dwd")
         columns_wind_features_gfs,columns_solar_features_gfs=utils_data.getFeaturesName(source="gfs")
         features_dwd=IntegratedDataset_test[columns_wind_features_dwd+columns_solar_features_dwd]
         features_gfs=IntegratedDataset_test[columns_wind_features_gfs+columns_solar_features_gfs]
 
-        #Benchmark Model 1
-        Total_generation_forecast=utils_forecasting.forecastTotalByBenchmark(featuresAllin1)
-        mpd_total_allin1=utils.meanPinballLoss(labelsAllin1,Total_generation_forecast)
-        mws_total_allin1=utils.getWinklerScore(y_true=labelsAllin1,y_pred=Total_generation_forecast)
-        mCRPS_allin1=utils.getMCRPS(y_true=labelsAllin1,y_pred=Total_generation_forecast)
-
-        #Benchmark Model 2
+        #Benchmark Model 
         Total_generation_forecast=utils_forecasting.forecastTotalByBenchmarkStacking(features_dwd,features_gfs)
         mpd_total_stacking=utils.meanPinballLoss(labelsAllin1,Total_generation_forecast)
         mws_total_stacking=utils.getWinklerScore(y_true=labelsAllin1,y_pred=Total_generation_forecast)
         mCRPS_stacking=utils.getMCRPS(y_true=labelsAllin1,y_pred=Total_generation_forecast)
 
     else:
-        mpd_total_allin1,mws_total_allin1,mCRPS_allin1=0,0,0
         mpd_total_stacking,mws_total_stacking,mCRPS_stacking=0,0,0
 
     # Quantile Add
@@ -83,13 +75,13 @@ def testAggregation(pathtype):
     print(f"----------------------------Case {pathtype} -----------------------------")
 
     print("==================Mean Pinball Loss==================")
-    print(f"Without Aggregation:{mpd_total0}\nWith Aggregation:{mpd_total1}",f"\nBenchmark:{mpd_total_allin1}\nBenchmark Stacking:{mpd_total_stacking}")
+    print(f"Quantile by Quantile:{mpd_total0}\nWith Aggregation:{mpd_total1}",f"\nTotal Forecasting:{mpd_total_stacking}")
 
     print("==================Mean Continuous Ranked Probability Score==================")
-    print(f"Without Aggregation:{mCRPS0}\nWith Aggregation:{mCRPS1}",f"\nBenchmark:{mCRPS_allin1}\nBenchmark Stacking:{mCRPS_stacking}")
+    print(f"Quantile by Quantile:{mCRPS0}\nWith Aggregation:{mCRPS1}",f"\nTotal Forecasting:{mCRPS_stacking}")
 
     print("==================Winkler Score==================")
-    print(f"Without Aggregation:{mws_total0}\nWith Aggregation:{mws_total1}",f"\nBenchmark:{mws_total_allin1}\nBenchmark Stacking:{mws_total_stacking}")
+    print(f"Quantile by Quantile:{mws_total0}\nWith Aggregation:{mws_total1}",f"\nTotal Forecasting:{mws_total_stacking}")
 
     return Total_generation_forecast0,Total_generation_forecast1,labels_wind_dwd+labels_solar_dwd
 

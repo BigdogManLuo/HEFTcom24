@@ -211,9 +211,6 @@ def generateLatestDataset():
     WindDataset_gfs.to_csv('../data/dataset/latest/gfs/WindDataset.csv',index=False)
     SolarDataset_gfs.to_csv('../data/dataset/latest/gfs/SolarDataset.csv',index=False)
 
-def generateAllin1Dataset():
-    pass
-
 
 if __name__ == "__main__":
     
