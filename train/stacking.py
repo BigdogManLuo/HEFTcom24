@@ -3,7 +3,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np
 import pandas as pd
-from utils import forecast_wind,forecast_solar
+from utils_forecasting import forecast_wind,forecast_solar
 import pickle
 from sklearn.linear_model import QuantileRegressor
 from sklearn.utils.fixes import parse_version, sp_version
@@ -72,7 +72,7 @@ def stackSisterForecast(targetType):
 
 
     if not os.path.exists("../models/Ensemble/train"):
-        os.makedirs("../models/Ensemble/trian")
+        os.makedirs("../models/Ensemble/train")
     if not os.path.exists("../models/Ensemble/full"):
         os.makedirs("../models/Ensemble/full")
 

@@ -9,7 +9,7 @@ from sklearn.linear_model import QuantileRegressor
 from sklearn.utils.fixes import parse_version, sp_version
 solver = "highs" if sp_version >= parse_version("1.6.0") else "interior-point"
 import numpy as np
-import utils
+import utils_forecasting
 import utils_data
 
 
@@ -40,6 +40,8 @@ for source in ["dwd","gfs"]:
             }
         model=LGBMRegressor(**params)
         model.fit(features,labels)
+        if not os.path.exists(f"../models/benchmark/train/{source}"):
+            os.makedirs(f"../models/benchmark/train/{source}")
         with open(f"../models/benchmark/train/{source}/quantile_{quantile}.pkl","wb") as f:
             pickle.dump(model,f)
 
@@ -64,7 +66,7 @@ for source in ["dwd","gfs"]:
 
     features=features_dwd if source=="dwd" else features_gfs
 
-    total_generation_forecast=utils.forecastTotalByBenchmark(features,source=source)
+    total_generation_forecast=utils_forecasting.forecastTotalByBenchmark(features,source=source)
     for quantile in range(10,100,10):
         predictions[f"{source}_total_q{quantile}"]=total_generation_forecast[f"q{quantile}"]
 
@@ -77,6 +79,8 @@ for quantile in tqdm(range(10,100,10)):
     Models_meta[f"q{quantile}"]=QuantileRegressor(quantile=quantile/100,solver=solver,alpha=0)
     Models_meta[f"q{quantile}"].fit(features_train,labels)
 
+    if not os.path.exists("../models/benchmark/train/ensemble/"):
+        os.makedirs("../models/benchmark/train/ensemble/")
     with open(f"../models/benchmark/train/ensemble/quantile_{quantile}.pkl","wb") as f:
         pickle.dump(Models_meta[f"q{quantile}"],f)
 
