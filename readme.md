@@ -48,7 +48,7 @@ The codebase is structured to reproduce the methodologies described in the paper
 - 📂 **data_analys** — Data analysis scripts/results
 - 📂 **figs** — Figures and visualizations
 - 📂 **models** — Model storage
-  - 📂 **benchmark/train** — Benchmark models and training outputs
+  - 📂 **benchmark/train** — Direct total forecasting (wind+solar) benchmark
   - 📂 **Ensemble** — Ensemble (wind/solar) models
   - 📂 **LGBM** — LightGBM models
   - 📂 **Prices** — Price-related models/data
