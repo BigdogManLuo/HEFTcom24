@@ -35,7 +35,6 @@ The codebase is structured to reproduce the methodologies described in the paper
   - 📂 **best_params** — Best tuned parameters
   - 📂 **dataset** — Training and testing datasets
     - 📂 **full** — Full HEFTCom offline datasets (Case 2 training)
-      - 📂 **allin1** — Combined dataset (all NWP sources in one model)
       - 📂 **dwd** — DWD source data
       - 📂 **gfs** — GFS source data
     - 📂 **latest** — HEFTCom online dataset (Case 2 test)
