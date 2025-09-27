@@ -91,10 +91,10 @@ python dataPreProcess.py
 ```bash
 #Train LightGBM models for dense quantile regression
 cd train
-python train/train.py
+python train.py
 
 #Train total generation forecasting model
-python train/train_total_stacking.py
+python train_total_stacking.py
 
 #Train the stacked multi-source NWPs sister forecasting model
 python stacking.py
