@@ -80,7 +80,7 @@ def stackSisterForecast(targetType):
     for quantile in chain([0.1],tqdm(range(1,100,1)),[99.9]):
         
         features_train=Predictions[[f"dwd_{targetType}_q{quantile}",f"gfs_{targetType}_q{quantile}"]].values
-        Models_meta[f"q{quantile}"]=QuantileRegressor(quantile=quantile/100,solver=solver,alpha=0,random_state=42)
+        Models_meta[f"q{quantile}"]=QuantileRegressor(quantile=quantile/100,solver=solver,alpha=0)
         Models_meta[f"q{quantile}"].fit(features_train,labels_dwd)
 
         with open(f"../models/Ensemble/train/{targetType}_q{quantile}.pkl","wb") as f:

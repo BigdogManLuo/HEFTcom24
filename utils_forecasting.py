@@ -68,8 +68,7 @@ def trainPostProcessModel(modelling_table,alpha=0.1):
         params={
             "quantile":quantile/100,
             "alpha":alpha,
-            "solver":solver,
-            "random_state":42
+            "solver":solver
         }
 
         model_revised=QuantileRegressor(**params)
@@ -87,9 +86,8 @@ def trainPostProcessModel_bidding(modelling_table):
     modelling_table=forecastWithoutPostProcessing_bidding(modelling_table)
 
     params={
-        "alpha":0.5,
-        "random_state":42
-    }
+        "alpha":0.5
+            }
     model_revised=Lasso(**params)
     features=modelling_table[["Predicted","Predicted^2"]].values
     labels=modelling_table["Solar_MWh_credit"].values

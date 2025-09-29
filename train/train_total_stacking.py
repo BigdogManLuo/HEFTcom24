@@ -77,7 +77,7 @@ Models_meta={}
 for quantile in tqdm(range(10,100,10)):
 
     features_train=Predictions[[f"dwd_total_q{quantile}",f"gfs_total_q{quantile}"]].values
-    Models_meta[f"q{quantile}"]=QuantileRegressor(quantile=quantile/100,solver=solver,alpha=0,random_state=42)
+    Models_meta[f"q{quantile}"]=QuantileRegressor(quantile=quantile/100,solver=solver,alpha=0)
     Models_meta[f"q{quantile}"].fit(features_train,labels)
 
     if not os.path.exists("../models/benchmark/train/ensemble/"):
