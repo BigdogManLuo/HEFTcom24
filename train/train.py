@@ -25,6 +25,7 @@ def getBestParams():
             'learning_rate':0.2,
             'lambda_l1': 40,           
             'lambda_l2': 80,
+            'random_state':42,
             'verbose':-1
             }        
         Params_wind_forecast[f"q{quantile}"]=params
@@ -39,6 +40,7 @@ def getBestParams():
             'learning_rate':0.19,
             'lambda_l1': 20,           
             'lambda_l2': 40,
+            'random_state':42,
             'verbose':-1
             }
         Params_solar_forecast[f"q{quantile}"]=params
@@ -111,6 +113,7 @@ params_LGBM_wind_trading={
     'learning_rate':0.078,
     'lambda_l1': 70,
     'lambda_l2': 40,
+    'random_state':42,
     'verbose':-1
     }
 
@@ -123,6 +126,7 @@ params_LGBM_solar_trading={
     'learning_rate':0.063,
     'lambda_l1': 80,           
     'lambda_l2': 40,
+    'random_state':42,
     'verbose':-1}
 
 

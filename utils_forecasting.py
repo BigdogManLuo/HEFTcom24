@@ -11,6 +11,8 @@ from sklearn.linear_model import Lasso
 import matplotlib.pyplot as plt
 import scienceplots
 
+np.random.seed(42)
+
 #============================Solar Post-Processing=======================
 def forecastWithoutPostProcessing(modelling_table):
 
@@ -66,7 +68,8 @@ def trainPostProcessModel(modelling_table,alpha=0.1):
         params={
             "quantile":quantile/100,
             "alpha":alpha,
-            "solver":solver
+            "solver":solver,
+            "random_state":42
         }
 
         model_revised=QuantileRegressor(**params)
@@ -84,7 +87,8 @@ def trainPostProcessModel_bidding(modelling_table):
     modelling_table=forecastWithoutPostProcessing_bidding(modelling_table)
 
     params={
-        "alpha":0.5
+        "alpha":0.5,
+        "random_state":42
     }
     model_revised=Lasso(**params)
     features=modelling_table[["Predicted","Predicted^2"]].values
@@ -357,7 +361,7 @@ def forecastTotalByBenchmarkStacking(features_dwd,features_gfs):
     Total_generation_forecast={}
     for quantile in range(10,100,10):
 
-        #调用基学习器预测
+        #Base Learners
         predictions = {}
         for source in ["dwd","gfs"]:
             features=features_dwd if source=="dwd" else features_gfs
@@ -367,7 +371,7 @@ def forecastTotalByBenchmarkStacking(features_dwd,features_gfs):
             predictions[f"{source}_total_q{quantile}"]=output
         modelling_table=pd.DataFrame(predictions)
 
-        #调用元学习器预测
+        #Meta Learner
         with open(f"../models/benchmark/train/ensemble/quantile_{quantile}.pkl","rb") as f:
             model=pickle.load(f)
         feature_meta=modelling_table[[f"dwd_total_q{quantile}",f"gfs_total_q{quantile}"]].values

@@ -13,6 +13,8 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
+torch.manual_seed(42)
+
 def preProcessIntegratedDataset(caseNumber):
     
     if caseNumber==1:

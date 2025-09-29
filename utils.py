@@ -52,16 +52,16 @@ def meanPinballLoss(y_true, y_pred):
 
 def crps(x_value, F_x, x_obs):
     """
-    计算离散情况下的 CRPS 值
-    :param x_value: ndarray, 预测 CDF 所对应的 x 值
-    :param F_x: ndarray, 预测的累积分布函数 CDF 值
-    :param x_obs: float, 真实观测值
-    :return: float, CRPS 值
+    Calculate the Continuous Ranked Probability Score (CRPS).
+    :param x_value: ndarray, range of values for integration
+    :param F_x: ndarray, Cumulative Distribution Function (CDF) values corresponding to x_value
+    :param x_obs: float, the observed value
+    :return: float, CRPS value
     """
-    # 计算阶跃函数 𝟙(y ≥ x_obs)
+    # Calculate 𝟙(y ≥ x_obs)
     step_function = np.where(x_value >= x_obs, 1.0, 0.0)
     
-    # 计算 (F(y) - 𝟙(y ≥ x_obs))^2 并求和近似积分
+    # Compute the CRPS using numerical integration (trapezoidal rule)
     crps_value = np.trapz((F_x - step_function) ** 2, x_value)
     
     return crps_value
