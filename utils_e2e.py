@@ -1,5 +1,7 @@
+import os
 import torch
 import torch.nn as nn
+import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import numpy as np
@@ -9,6 +11,7 @@ import utils_forecasting
 from sklearn.preprocessing import StandardScaler,MinMaxScaler
 import seaborn as sns
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 def preProcessIntegratedDataset(caseNumber):
     
@@ -168,7 +171,10 @@ def trainTestSplit(modelling_table,caseNumber,is_E2E):
     elif caseNumber==2: #Latest
         test_data=modelling_table.iloc[57432:,:]
         train_data=modelling_table.iloc[40000:57432,:]
-        modelling_table.drop("valid_datetime",axis=1,inplace=True)
+        try:
+            modelling_table.drop("valid_datetime",axis=1,inplace=True)
+        except:
+            pass
     else:
         raise ValueError("caseNumber must be 1 or 2")
     
@@ -184,15 +190,18 @@ def trainTestSplit(modelling_table,caseNumber,is_E2E):
     columns_features_train.remove("SS_Price")
     columns_features_train.remove("OptimalRevenue")
     columns_features_train.remove("power_error")
-    columns_features_train.remove("valid_datetime")
     columns_features_train.remove("power_pred")
     columns_features_test.remove("Price_diff")
     columns_features_test.remove("DA_Price")
     columns_features_test.remove("SS_Price")
     columns_features_test.remove("OptimalRevenue")
     columns_features_test.remove("power_error")
-    columns_features_test.remove("valid_datetime")
     columns_features_test.remove("total_generation_MWh")
+    try:
+        columns_features_train.remove("valid_datetime")
+        columns_features_test.remove("valid_datetime")
+    except:
+        pass
     
     features_train=train_data[columns_features_train].values
     features_test=test_data[columns_features_test].values
@@ -204,7 +213,6 @@ def trainTestSplit(modelling_table,caseNumber,is_E2E):
     features_train[:,0]=scaler_features.fit_transform(features_train[:,0].reshape(-1,1)).squeeze()
     features_test[:,0]=scaler_features.transform(features_test[:,0].reshape(-1,1)).squeeze()
     
-    #对labels进行归一化
     scaler_labels=StandardScaler()
     if not is_E2E:
         labels_train=scaler_labels.fit_transform(labels_train.reshape(-1,1)).squeeze()
@@ -234,7 +242,14 @@ class NNDataset(Dataset):
     
     def __getitem__(self, idx):
         return torch.tensor(self.features[idx], dtype=torch.float32), torch.tensor(self.labels[idx], dtype=torch.float32), torch.tensor(self.actual_generation[idx], dtype=torch.float32,requires_grad=False), torch.tensor(self.da_price[idx], dtype=torch.float32,requires_grad=False), torch.tensor(self.ss_price[idx], dtype=torch.float32,requires_grad=False)
-    
+
+def try_resume(model, path):
+    try:
+        model.load_state_dict(torch.load(path))
+        return True
+    except Exception:
+        return False
+
 #Multilayer Perceptron with batch normalization
 class MLPModel(nn.Module):
     def __init__(self, input_size, hidden_layer_size, output_size,num_layers=3):
@@ -255,3 +270,59 @@ class MLPModel(nn.Module):
             x = layer(x)
         x = self.output_layer(x)
         return x
+
+def train_model(features_train, labels_train, train_data, model_params, train_params, save_path, is_E2E=False):
+    
+    model = MLPModel(**model_params).to(train_params['device'])
+    status = try_resume(model, save_path)
+    if not status:
+        train_dataset = NNDataset(
+            features=features_train,
+            labels=labels_train,
+            actual_generation=train_data["total_generation_MWh"].values,
+            da_price=train_data["DA_Price"].values,
+            ss_price=train_data["SS_Price"].values
+        )
+        train_dataloader = DataLoader(train_dataset, batch_size=train_params['batch_size'], shuffle=True, drop_last=True)
+        model = MLPModel(**model_params).to(train_params['device'])
+        optimizer = optim.Adam(model.parameters(), lr=train_params['lr'])
+        loss_func = nn.MSELoss() if not is_E2E else trading_loss
+        for epoch in tqdm(range(train_params['num_epochs'])):
+            model.train()
+            loss_train = 0
+            for inputs, targets, actual_generation, da_price, ss_price in train_dataloader:
+                inputs, targets = inputs.to(train_params['device']), targets.to(train_params['device'])
+                actual_generation = actual_generation.to(train_params['device'])
+                da_price = da_price.to(train_params['device'])
+                ss_price = ss_price.to(train_params['device'])
+                optimizer.zero_grad()
+                outputs = model(inputs)
+                if is_E2E:
+                    loss = loss_func(outputs.squeeze(), actual_generation, da_price, ss_price, targets)
+                else:
+                    loss = loss_func(outputs.squeeze(), targets)
+                loss.backward()
+                optimizer.step()
+                loss_train += loss.item()
+            loss_train /= len(train_dataloader)
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        torch.save(model.state_dict(), save_path)
+    
+    return model
+    
+def test_model(model, features_test, scaler_labels, test_data, device, is_E2E=False):
+    model.eval()
+    with torch.no_grad():
+        outputs = model(torch.tensor(np.array(features_test, dtype=np.float32), dtype=torch.float32, device=device))
+        if not is_E2E:
+            outputs = scaler_labels.inverse_transform(outputs.squeeze().cpu().numpy().reshape(-1, 1)).reshape(-1)
+            biddings = test_data["power_pred"] + 7.14 * outputs
+            biddings = np.clip(biddings, 0, 1800)
+            Revenue = utils.getRevenue(biddings, test_data["total_generation_MWh"], test_data["DA_Price"], test_data["SS_Price"])
+            return Revenue, outputs
+        else:
+            outputs = outputs.squeeze().cpu().numpy().reshape(-1)
+            outputs = np.clip(outputs, 0, 1800)
+            pd_pred = utils.getEquivalentPriceSpreadForecast(Xb=outputs, Xa=test_data["power_pred"].values)
+            Revenue = utils.getRevenue(outputs, test_data["total_generation_MWh"], test_data["DA_Price"], test_data["SS_Price"])
+            return Revenue, pd_pred

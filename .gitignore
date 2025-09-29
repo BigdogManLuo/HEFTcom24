@@ -4,7 +4,10 @@ data/raw
 data/dataset
 !data/dataset/.gitkeep
 unused
-models
+models/benchmark
+models/Ensemble
+models/LGBM
+models/Rolling_PostProcess
 !models/.gitkeep
 !models/Prices
 hyper-params_search

@@ -17,8 +17,6 @@ Revenue_case2={
     "e2e":np.load("../data/revenues/case2/Revenue_e2e.npy")
 }
 
-
-
 OptimalRevenue_case1=np.load("../data/revenues/case1/OptimalRevenue.npy")
 OptimalRevenue_case2=np.load("../data/revenues/case2/OptimalRevenue.npy")
 
@@ -157,42 +155,3 @@ plt.grid()
 
 plt.tight_layout()
 plt.savefig('../figs/power_price_error.png', dpi=660)
-
-print("=================================== Case 1 Revenue ===================================")
-print("q50:", Revenue_case1["q50"].sum())
-print("ST:", Revenue_case1["ST"].sum())
-print("acc_oriented:", Revenue_case1["acc_oriented"].sum())
-print("e2e:", Revenue_case1["e2e"].sum())
-print("=================================== Case 2 Revenue ===================================")
-print("q50:", Revenue_case2["q50"].sum())
-print("ST:", Revenue_case2["ST"].sum())
-print("acc_oriented:", Revenue_case2["acc_oriented"].sum())
-print("e2e:", Revenue_case2["e2e"].sum())
-
-print("=================================== Case 1 Regret ===================================")
-print("q50:", Regret_case1["q50"].sum())
-print("ST:", Regret_case1["ST"].sum())
-print("acc_oriented:", Regret_case1["acc_oriented"].sum())
-print("e2e:", Regret_case1["e2e"].sum())
-print("=================================== Case 2 Regret ===================================")
-print("q50:", Regret_case2["q50"].sum())
-print("ST:", Regret_case2["ST"].sum())
-print("acc_oriented:", Regret_case2["acc_oriented"].sum())
-print("e2e:", Regret_case2["e2e"].sum())
-
-'''
-plt.figure(figsize=(8, 6))
-mask = (Loss_e2e_case1 < Loss_ST_case1) & (abs(pd_error_ST_case1)<abs(pd_error_e2e_case1))
-plt.rcParams['font.family'] = 'Times New Roman'
-plt.rcParams.update({'font.size': 18})
-plt.scatter(power_error_case1[~mask], pd_error_e2e_case1[~mask], s=1, alpha=0.5, color='b', label='Normal')
-plt.scatter(power_error_case1[mask], pd_error_e2e_case1[mask], s=2, alpha=1, color='#e84393', label='SoDR')
-plt.xlabel('Power Error (MWh)')
-plt.ylabel('Price Error (£/MWh)')
-plt.ylim(-500, 600)
-plt.title('E2E (Case 1)')
-plt.grid()
-plt.tight_layout()
-plt.savefig('../figs/pd_error_e2e_case1.png', dpi=660)
-plt.show()
-'''
