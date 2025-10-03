@@ -6,8 +6,6 @@
 This repository contains the code used in the paper **"A Hybrid Strategy for Probabilistic Forecasting and Trading of Aggregated Wind–Solar Power: Design and Analysis in HEFTCom2024"**, which details the solutions developed by Team GEB for the [Hybrid Energy Forecasting and Trading Competition 2024 (HEFTCom2024)](https://ieee-dataport.org/competitions/hybrid-energy-forecasting-and-trading-competition). Our solutions provide accurate probabilistic forecasts for a hybrid power plant and achieving significant trading revenue.
 ![image](figs/p1.png)
 
-## Final Rank
-
 In the final leaderboard of HEFTCom2024, the team GEB achieved:
 
 - 🥇 1st place among student teams in the Combined Track.
@@ -68,8 +66,12 @@ The codebase is structured to reproduce the methodologies described in the paper
 ### Create the Environment
 
 ```bash
-conda env create -f environment.yml
+# 1. Create conda env
+conda create -n HEFTCom24 --file conda-spec.txt
 conda activate HEFTCom24
+
+# 2. Install pip deps
+pip install -r requirements-pip.txt
 ```
 
 ### Data Preparation
@@ -104,13 +106,13 @@ python stacking.py
 
 ### Experimental Validation
 
-| Component                 | Validation Scripts                                          | Metrics                           | Corresponding Results in Paper |
-| ------------------------- | ----------------------------------------------------------- | --------------------------------- | ------------------------------ |
-| Wind Forecasting Ensemble | `test/test_ensemble.py`                                     | Pinball Loss, CRPS, Winkler Score | Table 2                        |
-| Solar Post-Processing     | `test/test_solar_online.py`                                 | Pinball Loss, CRPS, Winkler Score | Table 3, Figure 6              |
-| Probabilistic Aggregation | `test/test_aggregation.py`                                  | Pinball Loss, CRPS, Winkler Score | Table 4, Figure 7              |
-| Trading Strategy          | `test/test_trading.py`                                      | Trading Revenue                   | Table 5                        |
-| End-to-End Learning       | `test/test_e2e_benchmark_case*.py`,`test/test_e2e_case*.py` | Trading Revenue                   | Table 6                        |
+| Component                 | Validation Scripts          | Metrics                           | Corresponding Results in Paper |
+| ------------------------- | --------------------------- | --------------------------------- | ------------------------------ |
+| Wind Forecasting Ensemble | `test/test_ensemble.py`     | Pinball Loss, CRPS, Winkler Score | Table 2                        |
+| Solar Post-Processing     | `test/test_solar_online.py` | Pinball Loss, CRPS, Winkler Score | Table 3, Figure 6              |
+| Probabilistic Aggregation | `test/test_aggregation.py`  | Pinball Loss, CRPS, Winkler Score | Table 4, Figure 7              |
+| Trading Strategy          | `test/test_trading.py`      | Trading Revenue                   | Table 5                        |
+| End-to-End Learning       | `test_e2e.py`               | Trading Revenue                   | Table 6                        |
 
 ### Analysis and Visualization
 
@@ -128,7 +130,7 @@ The following files are used to plot the figures involved in the paper:
 ## Reference
 
 Please refer to
-[A Hybrid Strategy for Aggregated Probabilistic Forecasting and Energy Trading in HEFTCom2024](https://arxiv.org/abs/2505.10367) for more detail.
+[A Hybrid Strategy for Probabilistic Forecasting and Trading of Aggregated Wind–Solar Power: Design and Analysis in HEFTCom2024](https://arxiv.org/abs/2505.10367) for more detail.
 
 ## Acknowledgements
 
